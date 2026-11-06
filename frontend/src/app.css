@@ -1,0 +1,241 @@
+@import "@fontsource-variable/archivo/wdth.css";
+@import "@fontsource-variable/source-serif-4/index.css";
+@import "leaflet/dist/leaflet.css";
+
+:root {
+  --paper: #eef3f3;
+  --surface: #ffffff;
+  --ink: #0f2a33;
+  --ink-2: #55707a;
+  --rule: #cfdcde;
+  --accent: #ff5a1f;       /* line-arrow orange: markers, route, primary actions */
+  --accent-ink: #ffffff;
+  --accent-text: #c2410c;  /* accent dark enough for text on paper */
+  --water: #1d7a86;
+  --gold: #c99a00;
+  --danger: #b42318;
+  --halo: rgba(15, 42, 51, 0.55);
+
+  --font-ui: "Archivo Variable", system-ui, sans-serif;
+  --font-log: "Source Serif 4 Variable", Georgia, serif;
+  --radius-s: 6px;
+  --radius-m: 12px;
+  --gutter: 16px;
+  --max: 760px;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0a1c22;
+    --surface: #0f262e;
+    --ink: #e2eef0;
+    --ink-2: #8eaab2;
+    --rule: #22424c;
+    --accent: #ff6a33;
+    --accent-text: #ff8a5c;
+    --water: #3fb0bd;
+    --gold: #e7bd2e;
+    --danger: #ff6b5e;
+    --halo: rgba(0, 0, 0, 0.6);
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 16px;
+  line-height: 1.45;
+  -webkit-text-size-adjust: 100%;
+}
+
+body { min-height: 100dvh; }
+
+a { color: inherit; }
+
+h1, h2, h3 {
+  font-stretch: 72%;
+  font-weight: 760;
+  line-height: 1.05;
+  letter-spacing: -0.005em;
+  margin: 0;
+}
+h1 { font-size: 2.25rem; }
+h2 { font-size: 1.35rem; }
+h3 { font-size: 1.1rem; }
+
+.wrap {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+/* ---------- buttons & inputs ---------- */
+
+button, .btn {
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  min-height: 40px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+button:hover, .btn:hover { border-color: var(--ink-2); }
+button:disabled { opacity: 0.5; cursor: default; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn-primary:hover { border-color: var(--ink); }
+.btn-quiet { background: transparent; border-color: transparent; }
+.btn-quiet:hover { border-color: var(--rule); }
+.btn-danger { color: var(--danger); background: transparent; }
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+label.field {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+input, textarea, select {
+  font: inherit;
+  font-size: 1rem; /* 16px stops iOS zooming on focus */
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-s);
+  padding: 0.6rem 0.7rem;
+  width: 100%;
+  min-height: 44px;
+}
+textarea { resize: vertical; line-height: 1.5; }
+textarea.log { font-family: var(--font-log); font-size: 1.05rem; }
+input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+
+.muted { color: var(--ink-2); }
+.small { font-size: 0.875rem; }
+
+.trip-tag {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--water);
+  color: var(--water);
+  white-space: nowrap;
+}
+
+/* rendered markdown in logs */
+.prose {
+  font-family: var(--font-log);
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  max-width: 68ch;
+  overflow-wrap: anywhere;
+}
+.prose p { margin: 0 0 0.8em; }
+.prose ul, .prose ol { padding-left: 1.3em; margin: 0 0 0.8em; }
+.prose li { margin: 0.15em 0; }
+.prose :last-child { margin-bottom: 0; }
+
+/* ---------- line-arrow markers (Leaflet + preview) ---------- */
+
+.line-arrow {
+  filter: drop-shadow(0 0 1.5px var(--halo)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+}
+.line-arrow span {
+  display: grid;
+  place-items: start center;
+  width: 30px;
+  height: 38px;
+  padding-top: 6px;
+  background: var(--accent);
+  color: #fff;
+  clip-path: polygon(0 0, 100% 0, 100% 60%, 50% 100%, 0 60%);
+  font: 760 13px/1 var(--font-ui);
+  font-stretch: 70%;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+.line-arrow.selected span { background: var(--ink); color: var(--paper); }
+
+.vertex {
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--accent);
+  box-shadow: 0 0 0 1px var(--halo);
+}
+.vertex.last { background: var(--accent); }
+
+.leaflet-container {
+  background: var(--paper);
+  font-family: var(--font-ui);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+
+/* keep Leaflet's zoom buttons clear of the map toolbar */
+.leaflet-bottom.leaflet-right { bottom: 84px; }
+
+/* markers with photos get a small camera dot (the icon is already absolutely positioned by Leaflet) */
+.line-arrow.has-photos::after {
+  content: "";
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--water);
+  border: 2px solid #fff;
+}
+
+/* "#T1" marker references in log text */
+.prose a.mref {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.2em;
+  padding: 0 0.35em 0 0.3em;
+  border-radius: 4px;
+  font-family: var(--font-ui);
+  font-size: 0.88em;
+  font-weight: 700;
+  font-stretch: 85%;
+  color: var(--accent-text);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.prose a.mref:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.prose a.mref i {
+  width: 0.6em;
+  height: 0.78em;
+  align-self: center;
+  background: var(--accent);
+  clip-path: polygon(0 0, 100% 0, 100% 60%, 50% 100%, 0 60%);
+}
