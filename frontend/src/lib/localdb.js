@@ -9,6 +9,8 @@
 //   _onServer  the server has (had) this record
 //   _file      Blob of an image not yet uploaded (maps, photos)
 //   _fileName  original-ish filename for that blob
+//   _error     why the server rejected the last upload (shown to the user)
+//   _failedRev the _rev that was rejected; not retried until edited again
 
 import { openDB } from "idb";
 

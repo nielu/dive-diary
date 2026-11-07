@@ -1,5 +1,5 @@
 <script>
-  import { signIn } from "../lib/app.svelte.js";
+  import { app, signIn } from "../lib/app.svelte.js";
 
   let email = $state("");
   let password = $state("");
@@ -15,7 +15,9 @@
     } catch (err) {
       error = !navigator.onLine
         ? "You're offline. Sign in once with a connection; after that the app works without one."
-        : err?.status === 400
+        : err?.status === 429
+          ? "Too many sign-in attempts. Wait a minute and try again."
+          : err?.status === 400
           ? "Email or password is wrong."
           : err?.message || "Couldn't sign in.";
     } finally {
@@ -36,7 +38,11 @@
     <label class="field">Password
       <input type="password" autocomplete="current-password" bind:value={password} required />
     </label>
-    {#if error}<p class="error" role="alert">{error}</p>{/if}
+    {#if error}
+      <p class="error" role="alert">{error}</p>
+    {:else if app.sync.error?.kind === "auth"}
+      <p class="error" role="alert">{app.sync.error.message} Changes made on this device are kept.</p>
+    {/if}
     <button class="btn-primary" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
   </form>
 </main>

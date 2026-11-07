@@ -4,3 +4,5 @@ backend/pb_data/
 backend/pb_public/
 *.zip
 .DS_Store
+frontend/test-results/
+frontend/playwright-report/

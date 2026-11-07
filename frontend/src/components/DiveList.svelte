@@ -3,6 +3,7 @@
   import { go } from "../lib/router.svelte.js";
   import TopBar from "./TopBar.svelte";
   import DiveRows from "./DiveRows.svelte";
+  import InstallHint from "./InstallHint.svelte";
 
   let { trip } = $props();
 
@@ -22,6 +23,8 @@
     <h1>{trip || "All dives"}</h1>
     <button class="btn-primary" onclick={newDive}>New dive</button>
   </div>
+
+  <InstallHint />
 
   {#if trips.length}
     <nav class="trips" aria-label="Filter by trip">

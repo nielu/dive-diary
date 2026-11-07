@@ -389,7 +389,7 @@
   .arrow path { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
   .arrow text { font: 760 12px var(--font-ui); font-stretch: 70%; fill: var(--accent-text); }
   .arrow.passed path { fill: var(--accent); stroke: var(--halo); }
-  .arrow.passed text { fill: #fff; }
+  .arrow.passed text { fill: var(--accent-ink); }
   .arrow.current path { fill: var(--ink); stroke: var(--accent); stroke-width: 2.5; }
   .arrow.current text { fill: var(--paper); }
   .arrow.off path { fill: var(--surface); stroke: var(--ink-2); opacity: 0.7; }
@@ -512,7 +512,7 @@
     height: 38px;
     padding-top: 6px;
     background: var(--accent);
-    color: #fff;
+    color: var(--accent-ink);
     clip-path: polygon(0 0, 100% 0, 100% 60%, 50% 100%, 0 60%);
     font: 760 13px/1 var(--font-ui);
     font-stretch: 70%;

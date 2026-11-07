@@ -1,10 +1,24 @@
 // Reactive app state on top of the local DB, plus background sync.
 
-import PocketBase from "pocketbase";
+import PocketBase, { getTokenPayload } from "pocketbase";
 import * as local from "./localdb.js";
-import { syncAll, SyncAbort } from "./sync.js";
+import { syncAll, classify, describe } from "./sync.js";
+import { offlineDiveIds } from "./offline.js";
 
 export const pb = new PocketBase(location.origin);
+
+const FILE_TOKEN_KEY = "dd:fileToken";
+const FILE_TOKEN_RENEW_MS = 12 * 60 * 60 * 1000; // server issues 48h tokens
+
+function readStoredFileToken() {
+  try {
+    const t = JSON.parse(localStorage.getItem(FILE_TOKEN_KEY) || "null");
+    return t?.token ? t : null;
+  } catch {
+    return null;
+  }
+}
+
 pb.autoCancellation(false);
 
 export const app = $state({
@@ -13,7 +27,19 @@ export const app = $state({
   dives: [],
   maps: [],
   photos: [],
-  sync: { running: false, pending: 0, lastSync: null, error: null, online: navigator.onLine, failed: [] },
+  sync: {
+    running: false,
+    pending: 0,
+    lastSync: null,
+    // null, or { kind: "offline" | "server" | "busy" | "auth" | "other", message }
+    error: null,
+    online: navigator.onLine,
+    // records the server rejected: { collection, id, dive, title, message }
+    problems: [],
+    // maps and photos held back until their dive syncs
+    waiting: 0,
+  },
+  fileToken: readStoredFileToken()?.token || "",
 });
 
 pb.authStore.onChange(() => {
@@ -36,7 +62,25 @@ export async function reload() {
   app.photos = photos.sort(bySort);
   app.sync.pending = pending;
   app.sync.lastSync = lastSync || null;
+  updateProblems(dives, maps, photos);
   app.ready = true;
+}
+
+function updateProblems(dives, maps, photos) {
+  const diveById = new Map(dives.map((d) => [d.id, d]));
+  const title = (d) => d?.site || "Untitled dive";
+  const problems = [];
+  for (const d of dives) {
+    if (d._error) problems.push({ collection: "dives", id: d.id, dive: d.id, title: title(d), message: d._error });
+  }
+  for (const [collection, list, noun] of [["maps", maps, "Map"], ["photos", photos, "Photo"]]) {
+    for (const r of list) {
+      if (r._error) problems.push({ collection, id: r.id, dive: r.dive, title: `${noun} in ${title(diveById.get(r.dive))}`, message: r._error });
+    }
+  }
+  const stuckDives = new Set(dives.filter((d) => d._error && !d._onServer).map((d) => d.id));
+  app.sync.problems = problems;
+  app.sync.waiting = [...maps, ...photos].filter((r) => r._dirty && stuckDives.has(r.dive)).length;
 }
 
 // ---------- file URLs ----------
@@ -56,23 +100,59 @@ export function fileUrl(rec, thumb) {
     return entry.url;
   }
   if (!rec.image) return "";
-  const base = `/api/files/${rec.collectionName}/${rec.id}/${encodeURIComponent(rec.image)}`;
-  return thumb ? `${base}?thumb=${thumb}` : base;
+  // Image files are protected; the token is left out of offline cache keys.
+  const params = new URLSearchParams();
+  if (thumb) params.set("thumb", thumb);
+  if (app.fileToken) params.set("token", app.fileToken);
+  const qs = params.toString();
+  return `/api/files/${rec.collectionName}/${rec.id}/${encodeURIComponent(rec.image)}${qs ? `?${qs}` : ""}`;
 }
 
-/** Download maps and photo thumbnails into the offline cache. */
+/** Offline cache key for a file URL: absolute, without the access token. */
+export function cacheKey(url) {
+  const u = new URL(url, location.origin);
+  u.searchParams.delete("token");
+  return u.href;
+}
+
+// ---------- file token ----------
+
+
+async function ensureFileToken() {
+  const stored = readStoredFileToken();
+  if (stored && Date.now() - stored.at < FILE_TOKEN_RENEW_MS) {
+    if (app.fileToken !== stored.token) app.fileToken = stored.token;
+    return;
+  }
+  const token = await pb.files.getToken();
+  try {
+    localStorage.setItem(FILE_TOKEN_KEY, JSON.stringify({ token, at: Date.now() }));
+  } catch {}
+  app.fileToken = token;
+}
+
+/** Renew the 45-day session at most once a day, not on every sync. */
+async function ensureSession() {
+  const exp = getTokenPayload(pb.authStore.token)?.exp || 0;
+  const daysLeft = (exp * 1000 - Date.now()) / 86_400_000;
+  if (daysLeft < 44) await pb.collection("users").authRefresh();
+}
+
+/** Download the current trip's maps and photo thumbnails into the offline cache. */
 async function warmCache() {
   if (!("caches" in window)) return;
   try {
+    const keep = offlineDiveIds(app.dives);
     const cache = await caches.open("dive-files");
     const urls = [
-      ...app.maps.filter((m) => !m._file && m.image).map((m) => fileUrl(m)),
-      ...app.photos.filter((p) => !p._file && p.image).map((p) => fileUrl(p, "480x480f")),
+      ...app.maps.filter((m) => keep.has(m.dive) && !m._file && m.image).map((m) => fileUrl(m)),
+      ...app.photos.filter((p) => keep.has(p.dive) && !p._file && p.image).map((p) => fileUrl(p, "480x480f")),
     ];
     for (const url of urls) {
-      if (!(await cache.match(url))) {
+      const key = cacheKey(url);
+      if (!(await cache.match(key))) {
         const res = await fetch(url);
-        if (res.ok) await cache.put(url, res);
+        if (res.ok) await cache.put(key, res);
       }
     }
   } catch {
@@ -90,30 +170,38 @@ export function scheduleSync(delay = 1500) {
   timer = setTimeout(syncNow, delay);
 }
 
-export async function syncNow() {
-  if (!app.user || !navigator.onLine) return;
+/**
+ * Sync now. force: also retry changes the server rejected before.
+ */
+export async function syncNow({ force = false } = {}) {
+  if (!app.user) return;
+  if (!navigator.onLine) {
+    app.sync.error = { kind: "offline" };
+    return;
+  }
   if (app.sync.running) {
     again = true;
     return;
   }
   app.sync.running = true;
   app.sync.error = null;
-  const failed = [];
   try {
-    if (pb.authStore.isValid) await pb.collection("users").authRefresh();
-    await syncAll(pb, {
-      onError: (collection, rec, err) => failed.push({ collection, id: rec.id, message: describe(err) }),
-    });
-    app.sync.failed = failed;
+    await ensureSession();
+    await ensureFileToken();
+    await syncAll(pb, { force });
     await reload();
     warmCache();
   } catch (err) {
-    if (err?.status === 401 || err?.status === 403) {
-      app.sync.error = "Your session expired. Sign in again to sync.";
+    const kind = classify(err) || "other";
+    if (kind === "auth") {
+      app.sync.error = { kind, message: "Your session expired. Sign in again to sync." };
       pb.authStore.clear();
     } else {
-      app.sync.error = err instanceof SyncAbort ? "Offline. Changes are saved on this device." : describe(err);
+      app.sync.error = { kind, message: kind === "other" ? describe(err) : "" };
+      if (kind === "busy") scheduleSync(15_000);
+      if (kind === "server") scheduleSync(30_000);
     }
+    await reload(); // show records that were marked as rejected before the stop
   } finally {
     app.sync.running = false;
     if (again) {
@@ -123,23 +211,20 @@ export async function syncNow() {
   }
 }
 
-function describe(err) {
-  const fields = err?.response?.data;
-  if (fields && typeof fields === "object" && Object.keys(fields).length) {
-    return Object.entries(fields)
-      .map(([k, v]) => `${k}: ${v?.message || v}`)
-      .join(", ");
-  }
-  return err?.message || String(err);
-}
-
 export async function start() {
   await reload();
+  // Ask the browser not to clear offline data under storage pressure.
+  try {
+    if (navigator.storage?.persist && !(await navigator.storage.persisted())) await navigator.storage.persist();
+  } catch {}
   window.addEventListener("online", () => {
     app.sync.online = true;
     syncNow();
   });
-  window.addEventListener("offline", () => (app.sync.online = false));
+  window.addEventListener("offline", () => {
+    app.sync.online = false;
+    app.sync.error = { kind: "offline" };
+  });
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") syncNow();
   });
@@ -157,6 +242,10 @@ export async function signIn(email, password) {
 export async function signOut() {
   if (app.sync.pending > 0 && !confirm(`${app.sync.pending} change(s) haven't synced yet and will be lost. Sign out anyway?`)) return;
   pb.authStore.clear();
+  try {
+    localStorage.removeItem(FILE_TOKEN_KEY);
+  } catch {}
+  app.fileToken = "";
   await local.clearAll();
   await reload();
 }

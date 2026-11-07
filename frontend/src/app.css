@@ -9,9 +9,9 @@
   --ink-2: #55707a;
   --rule: #cfdcde;
   --accent: #ff5a1f;       /* line-arrow orange: markers, route, primary actions */
-  --accent-ink: #ffffff;
+  --accent-ink: #0b1f26;  /* dark text on orange: 5.4:1 (5.9:1 in dark mode) */
   --accent-text: #c2410c;  /* accent dark enough for text on paper */
-  --water: #1d7a86;
+  --water: #1a7380;
   --gold: #c99a00;
   --danger: #b42318;
   --halo: rgba(15, 42, 51, 0.55);
@@ -171,7 +171,7 @@ input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); ou
   height: 38px;
   padding-top: 6px;
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-ink);
   clip-path: polygon(0 0, 100% 0, 100% 60%, 50% 100%, 0 60%);
   font: 760 13px/1 var(--font-ui);
   font-stretch: 70%;

@@ -1,6 +1,8 @@
 <script>
   import { app, pb, tripNames, newShareToken, shareUrl } from "../lib/app.svelte.js";
   import TopBar from "./TopBar.svelte";
+  import { endOfLocalDay, localDate } from "../lib/format.js";
+  import { LIMITS } from "../lib/schema.js";
 
   let shares = $state([]);
   let loading = $state(true);
@@ -36,7 +38,7 @@
         token: newShareToken(),
         trip,
         label: label.trim() || trip || "All dives",
-        expires: expires ? `${expires} 23:59:59.000Z` : "",
+        expires: expires ? endOfLocalDay(expires) : "",
       });
       shares = [rec, ...shares];
       label = "";
@@ -100,7 +102,7 @@
       </select>
     </label>
     <label class="field">Name for the link
-      <input bind:value={label} placeholder={trip || "All dives"} />
+      <input bind:value={label} maxlength={LIMITS.shareLabel} placeholder={trip || "All dives"} />
     </label>
     <label class="field">Stops working after (optional)
       <input type="date" bind:value={expires} />
@@ -120,7 +122,7 @@
           <div>
             <strong>{s.label}</strong>
             <p class="muted small">
-              {s.trip ? `Trip: ${s.trip}` : "All dives"}{s.expires ? `, ${expired(s) ? "expired" : "until"} ${s.expires.slice(0, 10)}` : ""}
+              {s.trip ? `Trip: ${s.trip}` : "All dives"}{s.expires ? `, ${expired(s) ? "expired" : "until"} ${localDate(s.expires)}` : ""}
             </p>
           </div>
           <div class="actions">

@@ -1,6 +1,8 @@
 <script>
   import { untrack, tick } from "svelte";
   import { markerIndex } from "../lib/refs.js";
+  import { LIMITS } from "../lib/schema.js";
+  import { FIELDS } from "../lib/localdb.js";
   import { app, saveDive, deleteRecord, tripNames } from "../lib/app.svelte.js";
   import { go } from "../lib/router.svelte.js";
   import TopBar from "./TopBar.svelte";
@@ -30,8 +32,25 @@
     clearTimeout(timer);
     if (!form || saved) return;
     const current = app.dives.find((d) => d.id === id) || {};
-    await saveDive({ ...current, ...$state.snapshot(form), trip: form.trip.trim(), site: form.site.trim() });
+    // Only the editable fields; sync bookkeeping stays as it is in the database.
+    const edits = Object.fromEntries(FIELDS.dives.map((f) => [f, $state.snapshot(form[f])]));
+    await saveDive({ ...current, ...edits, trip: (form.trip || "").trim(), site: (form.site || "").trim() });
     saved = true;
+  }
+
+  // A dive must have a date; clearing the field keeps the last one.
+  let dateError = $state("");
+  function onDate(e) {
+    const v = e.currentTarget.value;
+    if (v) {
+      form.date = v;
+      dateError = "";
+    } else {
+      dateError = "A dive needs a date. The last one is kept.";
+    }
+  }
+  function onDateBlur(e) {
+    if (!e.currentTarget.value) e.currentTarget.value = form.date;
   }
 
   async function done() {
@@ -84,25 +103,26 @@
 
     <div class="grid">
       <label class="field span2">Site
-        <input bind:value={form.site} placeholder="Cenote, cave or entrance" />
+        <input bind:value={form.site} maxlength={LIMITS.site} placeholder="Cenote, cave or entrance" />
       </label>
       <label class="field">Date
-        <input type="date" bind:value={form.date} required />
+        <input type="date" value={form.date} oninput={onDate} onblur={onDateBlur} required aria-invalid={dateError ? "true" : undefined} aria-describedby={dateError ? "date-error" : undefined} />
+        {#if dateError}<span id="date-error" class="field-error">{dateError}</span>{/if}
       </label>
       <label class="field">Time in
-        <input type="time" bind:value={form.time} />
+        <input type="time" value={form.time} oninput={(e) => (form.time = e.currentTarget.value.slice(0, 5))} />
       </label>
       <label class="field span2">Trip
-        <input bind:value={form.trip} list="trip-names" placeholder="e.g. Mexico 2026" />
+        <input bind:value={form.trip} maxlength={LIMITS.trip} list="trip-names" placeholder="e.g. Mexico 2026" />
         <datalist id="trip-names">
           {#each trips as t}<option value={t}></option>{/each}
         </datalist>
       </label>
       <label class="field span2">Team
-        <input bind:value={form.team} placeholder="Who dived" />
+        <input bind:value={form.team} maxlength={LIMITS.team} placeholder="Who dived" />
       </label>
       <label class="field span2">Led by
-        <input bind:value={form.leader} />
+        <input bind:value={form.leader} maxlength={LIMITS.leader} />
       </label>
       <label class="field">Max depth (m)
         <input inputmode="decimal" type="number" step="0.1" min="0" value={form.max_depth || ""} oninput={(e) => (form.max_depth = num(e.currentTarget.value))} />
@@ -117,7 +137,7 @@
         <input inputmode="numeric" type="number" step="1" min="0" value={form.duration || ""} oninput={(e) => (form.duration = Math.round(num(e.currentTarget.value)))} />
       </label>
       <label class="field span2">Navigation
-        <textarea class="log" rows="7" bind:this={fields.navigation} bind:value={form.navigation} onfocus={() => (activeField = "navigation")} onblur={() => (activeField = "")} placeholder={"One decision per line, e.g.\n#T1 left, follow main line\nJump at arrow 3 to the blue line"}></textarea>
+        <textarea class="log" rows="7" maxlength={LIMITS.navigation} bind:this={fields.navigation} bind:value={form.navigation} onfocus={() => (activeField = "navigation")} onblur={() => (activeField = "")} placeholder={"One decision per line, e.g.\n#T1 left, follow main line\nJump at arrow 3 to the blue line"}></textarea>
         {#if activeField === "navigation" && refList.length}
           <div class="chips" role="toolbar" aria-label="Insert a marker reference">
             {#each refList as r (r.markerId)}
@@ -127,7 +147,7 @@
         {/if}
       </label>
       <label class="field span2">Log and comments
-        <textarea class="log" rows="10" bind:this={fields.log} bind:value={form.log} onfocus={() => (activeField = "log")} onblur={() => (activeField = "")} placeholder="How the dive went, conditions, turn point and why"></textarea>
+        <textarea class="log" rows="10" maxlength={LIMITS.log} bind:this={fields.log} bind:value={form.log} onfocus={() => (activeField = "log")} onblur={() => (activeField = "")} placeholder="How the dive went, conditions, turn point and why"></textarea>
         {#if activeField === "log" && refList.length}
           <div class="chips" role="toolbar" aria-label="Insert a marker reference">
             {#each refList as r (r.markerId)}
@@ -167,6 +187,7 @@
   .span2 { grid-column: span 2; }
   input[type="date"], input[type="time"] { min-width: 0; }
   code { font-size: 0.85em; }
+  .field-error { color: var(--danger); font-weight: 600; font-size: 0.85rem; }
   .chips {
     display: flex;
     gap: 0.35rem;

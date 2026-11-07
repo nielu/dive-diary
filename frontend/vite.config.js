@@ -36,7 +36,18 @@ export default defineConfig({
             options: {
               cacheName: "dive-files",
               expiration: { maxEntries: 1500, maxAgeSeconds: 60 * 60 * 24 * 365 },
-              cacheableResponse: { statuses: [0, 200] },
+              cacheableResponse: { statuses: [200] },
+              plugins: [
+                {
+                  // Files are fetched with a short-lived access token; cache
+                  // them under the URL without it so they stay found offline.
+                  cacheKeyWillBeUsed: async ({ request }) => {
+                    const u = new URL(request.url);
+                    u.searchParams.delete("token");
+                    return u.href;
+                  },
+                },
+              ],
             },
           },
         ],

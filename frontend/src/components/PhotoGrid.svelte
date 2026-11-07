@@ -4,6 +4,7 @@
   let { photos, fileUrl, owner = false } = $props();
 
   let open = $state(-1);
+  let fullFailed = $state({});
   let caption = $state("");
   const current = $derived(open >= 0 ? photos[open] : null);
 
@@ -76,7 +77,15 @@
     </div>
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="stage" ontouchstart={touchStart} ontouchend={touchEnd}>
-      <img src={fileUrl(current)} alt={current.caption || ""} />
+      <!-- Full size isn't kept offline; fall back to the cached thumbnail. -->
+      <img
+        src={fullFailed[current.id] ? fileUrl(current, "480x480f") : fileUrl(current)}
+        alt={current.caption || ""}
+        onerror={() => {
+          if (!fullFailed[current.id]) fullFailed[current.id] = true;
+        }}
+      />
+      {#if fullFailed[current.id]}<p class="lowres">Full size isn't available offline.</p>{/if}
       {#if photos.length > 1}
         <button class="nav prev" onclick={() => step(-1)} aria-label="Previous photo">‹</button>
         <button class="nav next" onclick={() => step(1)} aria-label="Next photo">›</button>
@@ -84,7 +93,7 @@
     </div>
     <div class="cap">
       {#if owner}
-        <input placeholder="Add a caption" bind:value={caption} onblur={saveCaption} onkeydown={(e) => e.key === "Enter" && e.currentTarget.blur()} />
+        <input placeholder="Add a caption" maxlength="500" bind:value={caption} onblur={saveCaption} onkeydown={(e) => e.key === "Enter" && e.currentTarget.blur()} />
       {:else if current.caption}
         <p>{current.caption}</p>
       {/if}
@@ -129,6 +138,18 @@
   .light { color: #fff; }
   .stage { position: relative; min-height: 0; display: grid; place-items: center; }
   .stage img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .lowres {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+    padding: 0.25rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.6);
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
   .nav {
     position: absolute;
     top: 50%;

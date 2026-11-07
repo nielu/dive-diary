@@ -50,11 +50,19 @@ doesn't exist; after that you can drop them. Signups are disabled, so nobody
 else can create an account. The admin dashboard is at `/_/` (create a
 superuser with `./pocketbase superuser upsert EMAIL PASS`).
 
-Tests (backend must be running with the owner account):
+### Tests
 
 ```bash
-cd frontend && PB_URL=http://127.0.0.1:8090 OWNER_EMAIL=... OWNER_PASSWORD=... npm test
+cd frontend && npm run build   # the browser tests use the built app
+cd .. && ./scripts/test.sh      # unit, sync and browser tests on a throwaway server
+./scripts/test.sh --unit        # just the fast unit tests, no server
 ```
+
+`scripts/test.sh` starts PocketBase with the same folder layout as the Docker
+image and a fresh database, then runs `frontend/tests/*.test.js` (Node) and
+`frontend/e2e/*.spec.js` (Playwright). GitHub Actions runs the same script on
+every push (`.github/workflows/test.yml`). In Railway, turn on **Wait for CI**
+in the service settings so a push only deploys after the tests pass.
 
 ## Deploy
 
@@ -115,10 +123,25 @@ the connection comes back, when the app returns to the foreground, and every
 two minutes. Push goes parents-first (dives, maps, photos) and deletes go
 children-first. A record edited on the device is never overwritten by the
 server until it has been pushed (last write wins; it's a single-user app).
-The app shell is precached by the service worker; maps and photo thumbnails
-are downloaded into the offline cache after each sync, so maps uploaded at
-home can be opened at the site. Sign in once with a connection; sessions last
-45 days and refresh on each sync.
+Pulls are incremental: only records changed since the last sync are
+downloaded, plus a list of ids to notice deletions.
+
+If the server rejects a change (say, a value it doesn't accept), the record
+keeps the reason and isn't sent again until it's edited, so a photo isn't
+re-uploaded every few minutes. Its maps and photos wait for it instead of
+failing too. The sync status then reads "N couldn't sync"; tapping it lists
+each one with the reason and a link to fix it. Being offline, the server
+restarting or the rate limit kicking in just pause the sync.
+
+The app shell is precached by the service worker. Maps and photo thumbnails of
+the current trip (the newest dive's trip, plus the 30 days before it) are
+downloaded into the offline cache after each sync, so maps uploaded at home
+open at the site; older dives work offline if they were opened before. A
+full-size photo that isn't cached falls back to its thumbnail. The app asks
+the browser to keep its data; on iPhone, Safari can still clear a website's
+data after a week without a visit, so the app suggests adding it to the Home
+Screen. Sign in once with a connection; sessions last 45 days and renew once
+a day.
 
 **Maps.** Map photos are downscaled to max 4000 px, photos to 2560 px, and
 both are re-encoded as JPEG in the browser, which strips EXIF data including
@@ -153,10 +176,19 @@ inserts the reference at the cursor. Labels can use letters, digits and
 
 **Share links.** A share is a random 32-character token tied to a trip (or to
 all dives). `GET /api/share/{token}` returns that trip's dives, maps and
-photos without auth; the collections themselves stay owner-only. Turning the
-link off deletes the token. File URLs are unprotected (needed for viewers
-without a login) but contain record ids and random filenames that are only
-discoverable through a valid share.
+photos without auth; the collections themselves stay owner-only. Image files
+are protected: the owner app adds a file token (valid 48 hours, renewed every
+12) and leaves it out of offline cache keys. Viewers get images through
+`GET /api/share/{token}/file/{collection}/{id}/{name}`, which checks the link
+on every request, so turning a link off stops its images straight away
+(a browser may keep images it already showed for up to an hour). Expiry dates
+end at midnight in the owner's time zone.
+
+**Security settings** (migration `1762560000_hardening.js`): rate limiting is
+on, with at most 5 sign-in attempts a minute per visitor address. Railway's
+edge overwrites `X-Real-IP` with the visitor's address, so PocketBase is set
+to trust that header; on a host that doesn't set it, change the trusted proxy
+in the dashboard (Settings → Application), or every visitor shares one limit.
 
 ## Notes and limits
 

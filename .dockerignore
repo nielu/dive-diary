@@ -3,3 +3,6 @@ backend/pocketbase
 backend/pb_data
 backend/pb_public
 *.zip
+frontend/test-results
+frontend/playwright-report
+.github

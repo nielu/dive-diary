@@ -1,28 +1,14 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 // Note: each PocketBase hook handler runs in its own isolated JS context,
-// so helpers must live inside the handler (or in a require()-d module).
+// so shared helpers are require()-d inside each handler.
 
 // Read-only share endpoint for family viewers. No auth: the unguessable token
 // is the credential. Only dives in the shared trip (or all, if trip is empty)
 // are returned. Delete the share record to revoke the link.
 routerAdd("GET", "/api/share/{token}", (e) => {
-  const token = e.request.pathValue("token") || "";
-  if (!/^[A-Za-z0-9]{24,64}$/.test(token)) {
-    throw new NotFoundError("This link doesn't exist.");
-  }
-
-  let share;
-  try {
-    share = $app.findFirstRecordByData("shares", "token", token);
-  } catch (_) {
-    throw new NotFoundError("This link doesn't exist or was turned off.");
-  }
-
-  const expires = share.getString("expires");
-  if (expires && new Date(expires.replace(" ", "T")) < new Date()) {
-    throw new NotFoundError("This link has expired.");
-  }
+  const { findShare } = require(`${__hooks}/share_lib.js`);
+  const share = findShare($app, e.request.pathValue("token"));
 
   const trip = share.getString("trip");
   const diveFilter = trip ? "trip = {:trip}" : "id != ''";
@@ -41,6 +27,56 @@ routerAdd("GET", "/api/share/{token}", (e) => {
     maps: maps,
     photos: photos,
   });
+});
+
+// Map and photo files for share viewers. Image fields are protected, so this
+// is the only way in without the owner's login, and it stops working the
+// moment the share is turned off or expires.
+routerAdd("GET", "/api/share/{token}/file/{collection}/{id}/{name}", (e) => {
+  const { findShare, shareCoversDive, THUMBS } = require(`${__hooks}/share_lib.js`);
+  const share = findShare($app, e.request.pathValue("token"));
+
+  const collection = e.request.pathValue("collection");
+  if (!THUMBS[collection]) throw new NotFoundError("");
+
+  let record, dive;
+  try {
+    record = $app.findRecordById(collection, e.request.pathValue("id"));
+    dive = $app.findRecordById("dives", record.getString("dive"));
+  } catch (_) {
+    throw new NotFoundError("");
+  }
+  const name = e.request.pathValue("name");
+  if (record.getString("image") !== name || !shareCoversDive(share, dive)) {
+    throw new NotFoundError("");
+  }
+
+  const base = record.baseFilesPath();
+  let servedKey = base + "/" + name;
+  let servedName = name;
+  const thumb = e.request.url.query().get("thumb");
+
+  const fsys = $app.newFilesystem();
+  try {
+    if (thumb && THUMBS[collection].includes(thumb)) {
+      const thumbName = thumb + "_" + name;
+      const thumbKey = base + "/thumbs_" + name + "/" + thumbName;
+      try {
+        if (!fsys.exists(thumbKey)) fsys.createThumb(servedKey, thumbKey, thumb);
+        servedKey = thumbKey;
+        servedName = thumbName;
+      } catch (err) {
+        console.log("share thumb failed, serving original: " + err);
+      }
+    }
+    // Browsers may keep a viewed image for an hour after the link is turned off.
+    e.response.header().set("Cache-Control", "private, max-age=3600");
+    fsys.serve(e.response, e.request, servedKey, servedName);
+  } catch (err) {
+    throw new NotFoundError("");
+  } finally {
+    fsys.close();
+  }
 });
 
 // Optional: create the owner account on first start from env vars, so a fresh

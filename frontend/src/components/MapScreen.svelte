@@ -82,6 +82,7 @@
   }
   function flush() {
     clearTimeout(timer);
+    timer = null;
     onSave?.({
       markers: $state.snapshot(markers),
       route: $state.snapshot(route).filter((s) => s.length > 0),
@@ -240,7 +241,7 @@
     </a>
     <div class="title pill">
       {#if owner && mode !== "view"}
-        <input aria-label="Map caption" placeholder="Map caption" bind:value={caption} oninput={persist} />
+        <input aria-label="Map caption" placeholder="Map caption" maxlength="200" bind:value={caption} oninput={persist} />
       {:else}
         <span>{caption || "Untitled map"}</span>
       {/if}
@@ -448,7 +449,7 @@
     min-height: 40px;
     padding: 0 1rem;
   }
-  .seg button[aria-checked="true"] { background: var(--accent); color: #fff; }
+  .seg button[aria-checked="true"] { background: var(--accent); color: var(--accent-ink); }
   .route-tools {
     display: flex;
     gap: 0.4rem;
@@ -501,7 +502,7 @@
     height: 38px;
     padding-top: 6px;
     background: var(--accent);
-    color: #fff;
+    color: var(--accent-ink);
     clip-path: polygon(0 0, 100% 0, 100% 60%, 50% 100%, 0 60%);
     font: 760 13px/1 var(--font-ui);
     font-stretch: 70%;
@@ -531,7 +532,7 @@
   .thumb[aria-pressed="true"] { opacity: 1; outline: 3px solid var(--accent); outline-offset: -3px; }
   .thumb:focus-visible { outline: 3px solid var(--ink); }
   .thumb.add { opacity: 1; border: 1.5px dashed var(--ink-2); background: transparent; color: var(--ink-2); }
-  .follow { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 700; display: inline-flex; align-items: center; text-decoration: none; }
+  .follow { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; display: inline-flex; align-items: center; text-decoration: none; }
   .list ol { list-style: none; margin: 0; padding: 0; }
   .list li + li { border-top: 1px solid var(--rule); }
   .list li button {

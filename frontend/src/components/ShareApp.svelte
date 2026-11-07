@@ -33,9 +33,10 @@
   const photos = $derived(data?.photos.filter((p) => p.dive === route.params.dive) || []);
   const map = $derived(maps.find((m) => m.id === route.params.map));
 
+  // Images come through the share link, so they stop loading when it's turned off.
   function fileUrl(rec, thumb) {
     if (!rec?.image) return "";
-    const url = `/api/files/${rec.collectionName}/${rec.id}/${encodeURIComponent(rec.image)}`;
+    const url = `/api/share/${encodeURIComponent(token)}/file/${rec.collectionName}/${rec.id}/${encodeURIComponent(rec.image)}`;
     return thumb ? `${url}?thumb=${thumb}` : url;
   }
 </script>

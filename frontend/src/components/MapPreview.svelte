@@ -32,7 +32,7 @@
             style:stroke="var(--halo)"
             stroke-width={s * 0.05}
           />
-          <text y={-s * 0.78} text-anchor="middle" font-size={s * 0.45} font-weight="760" fill="#fff" style="font-stretch:70%">{(m.label || "").slice(0, 3)}</text>
+          <text y={-s * 0.78} text-anchor="middle" font-size={s * 0.45} font-weight="760" style:fill="var(--accent-ink)" style="font-stretch:70%">{(m.label || "").slice(0, 3)}</text>
         </g>
       {/each}
     </svg>

@@ -1,19 +1,30 @@
 <script>
   import { app, syncNow, signOut } from "../lib/app.svelte.js";
+  import SyncPanel from "./SyncPanel.svelte";
 
   /** @type {{ backHref?: string, backLabel?: string, children?: any, showSync?: boolean }} */
   let { backHref, backLabel = "Back", children, showSync = true } = $props();
   let menuOpen = $state(false);
+  let panelOpen = $state(false);
 
   const status = $derived.by(() => {
     const s = app.sync;
+    const kind = s.error?.kind;
     if (s.running) return { text: "Syncing…", tone: "busy" };
-    if (!s.online) return { text: s.pending ? `Offline, ${s.pending} to sync` : "Offline", tone: "off" };
-    if (s.error) return { text: s.pending ? `${s.pending} not synced` : "Sync failed", tone: "err" };
-    if (s.failed.length) return { text: `${s.failed.length} couldn't sync`, tone: "err" };
+    if (s.problems.length) return { text: `${s.problems.length} couldn't sync`, tone: "err" };
+    if (!s.online || kind === "offline") return { text: s.pending ? `Offline, ${s.pending} to sync` : "Offline", tone: "off" };
+    if (kind === "server") return { text: "Server unavailable", tone: "off" };
+    if (kind === "busy") return { text: "Sync paused", tone: "busy" };
+    if (kind) return { text: "Sync failed", tone: "err" };
     if (s.pending) return { text: `${s.pending} to sync`, tone: "busy" };
     return { text: "Synced", tone: "ok" };
   });
+
+  // With problems to show, the status opens the list; otherwise it syncs.
+  function onStatus() {
+    if (app.sync.problems.length || app.sync.error?.kind === "other") panelOpen = true;
+    else syncNow();
+  }
 
   function onWindowClick(e) {
     if (menuOpen && !e.target.closest?.(".menu")) menuOpen = false;
@@ -36,7 +47,7 @@
     <div class="right">
       {@render children?.()}
       {#if showSync && app.user}
-        <button class="sync {status.tone}" onclick={syncNow} title={app.sync.error || (app.sync.failed[0]?.message ?? "Sync now")}>
+        <button class="sync {status.tone}" onclick={onStatus} aria-haspopup={app.sync.problems.length ? "dialog" : undefined}>
           <i aria-hidden="true"></i>{status.text}
         </button>
         <div class="menu">
@@ -53,10 +64,11 @@
       {/if}
     </div>
   </div>
-  {#if app.sync.error && app.sync.online}
-    <p class="wrap notice">{app.sync.error}</p>
-  {/if}
 </header>
+
+{#if panelOpen}
+  <SyncPanel onClose={() => (panelOpen = false)} />
+{/if}
 
 <style>
   .bar {
@@ -140,10 +152,4 @@
     font-weight: 600;
   }
   .pop a:hover, .pop button:hover, .pop a:focus-visible, .pop button:focus-visible { background: var(--paper); }
-  .notice {
-    margin: 0 auto;
-    padding-bottom: 0.6rem;
-    color: var(--danger);
-    font-size: 0.9rem;
-  }
 </style>
