@@ -3,10 +3,12 @@
   import Markdown from "./Markdown.svelte";
   import MapPreview from "./MapPreview.svelte";
   import PhotoGrid from "./PhotoGrid.svelte";
+  import DepthProfile from "./DepthProfile.svelte";
   import { markerIndex } from "../lib/refs.js";
 
-  /** @type {{ dive: any, maps: any[], photos: any[], base?: string, owner?: boolean, fileUrl: (r: any, thumb?: string) => string, onAddMaps?: (files: File[]) => void, onAddPhotos?: (files: File[]) => void, busy?: string }} */
-  let { dive, maps, photos, base = "", owner = false, fileUrl, onAddMaps, onAddPhotos, busy = "" } = $props();
+  /** @type {{ dive: any, maps: any[], photos: any[], base?: string, owner?: boolean, fileUrl: (r: any, thumb?: string) => string, onAddMaps?: (files: File[]) => void, onAddPhotos?: (files: File[]) => void, onImportFile?: (file: File) => void, busy?: string }} */
+  let { dive, maps, photos, base = "", owner = false, fileUrl, onAddMaps, onAddPhotos, onImportFile, busy = "" } = $props();
+  const hasProfile = $derived(Array.isArray(dive.profile?.samples) && dive.profile.samples.length > 1);
 
   const refs = $derived(markerIndex(maps));
   const refHref = (r) => `#${base}/dive/${dive.id}/map/${r.mapId}?m=${r.markerId}`;
@@ -30,7 +32,7 @@
 
 <article class="wrap">
   <header class="title">
-    <p class="when">{formatDate(dive.date, dive.time)}</p>
+    <p class="when">{formatDate(dive.date, dive.time)}{dive.dive_no ? `, dive ${dive.dive_no}` : ""}</p>
     <h1>{dive.site || "Untitled dive"}</h1>
     {#if dive.trip}<a class="trip-tag" href={`#${base}/trip/${encodeURIComponent(dive.trip)}`}>{dive.trip}</a>{/if}
     {#if hasRoute}
@@ -46,11 +48,25 @@
     </dl>
   {/if}
 
-  {#if dive.team || dive.leader}
+  {#if dive.team || dive.leader || dive.gas}
     <dl class="team">
       {#if dive.leader}<div><dt>Led by</dt><dd>{dive.leader}</dd></div>{/if}
       {#if dive.team}<div><dt>Team</dt><dd>{dive.team}</dd></div>{/if}
+      {#if dive.gas}<div><dt>Gas</dt><dd>{dive.gas}</dd></div>{/if}
     </dl>
+  {/if}
+
+  {#if hasProfile}
+    <section>
+      <h2>Profile</h2>
+      <DepthProfile profile={dive.profile} />
+      {#if dive.computer}<p class="muted small computer">Recorded by {dive.computer}</p>{/if}
+    </section>
+  {:else if owner && onImportFile}
+    <label class="btn btn-quiet attach">
+      {busy === "fit" ? "Reading…" : "Add Garmin .fit file"}
+      <input type="file" hidden onchange={(e) => pick(e, (files) => onImportFile(files[0]))} disabled={!!busy} />
+    </label>
   {/if}
 
   {#if dive.navigation}
@@ -150,6 +166,8 @@
   .team div { display: grid; grid-template-columns: 5rem 1fr; gap: 0.75rem; }
   .team dt { color: var(--ink-2); font-weight: 600; font-size: 0.9rem; padding-top: 0.1rem; }
   .team dd { margin: 0; }
+  .computer { margin: 0.3rem 0 0; }
+  .attach { margin-top: 1rem; padding-left: 0; color: var(--accent-text); text-decoration: underline; text-underline-offset: 3px; }
 
   section { margin-top: 2.25rem; }
   section > h2, .sec-head h2 { margin-bottom: 0.75rem; }

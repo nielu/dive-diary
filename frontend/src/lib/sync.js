@@ -21,6 +21,8 @@ import { COLLECTIONS, FIELDS, openLocalDb, getMeta, setMeta } from "./localdb.js
 import { FIELD_LABELS } from "./schema.js";
 
 const PUSH_ORDER = ["dives", "maps", "photos"];
+// what an unset field is sent as (JSON fields can't be "")
+const EMPTY = { markers: [], route: [], profile: null, dive_no: 0 };
 const DELETE_ORDER = ["photos", "maps", "dives"];
 
 /** Stops a sync run. kind: "offline" | "auth" | "server" | "busy" */
@@ -71,7 +73,7 @@ function payload(collection, rec) {
   const data = { id: rec.id };
   for (const f of FIELDS[collection]) {
     const v = rec[f];
-    data[f] = v === undefined || v === null ? (f === "markers" || f === "route" ? [] : "") : v;
+    data[f] = v === undefined || v === null ? (f in EMPTY ? EMPTY[f] : "") : v;
   }
   if (!rec._file) return data;
 

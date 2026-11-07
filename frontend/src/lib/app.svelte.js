@@ -284,6 +284,11 @@ export async function createDive() {
     duration: 0,
     navigation: "",
     log: "",
+    gas: "",
+    dive_no: 0,
+    computer: "",
+    source: "",
+    profile: null,
   });
 }
 

@@ -19,6 +19,7 @@ function parse() {
       r.params.map = p[3];
     } else r.name = "dive";
   } else if (p[0] === "shares") r.name = "shares";
+  else if (p[0] === "import") r.name = "import";
   else if (p[0] === "trip" && p[1]) {
     r.name = "list";
     r.params.trip = decodeURIComponent(p[1]);

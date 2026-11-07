@@ -21,7 +21,10 @@
 <main class="wrap">
   <div class="head">
     <h1>{trip || "All dives"}</h1>
-    <button class="btn-primary" onclick={newDive}>New dive</button>
+    <div class="actions">
+      <a class="btn" href="#/import">Import</a>
+      <button class="btn-primary" onclick={newDive}>New dive</button>
+    </div>
   </div>
 
   <InstallHint />
@@ -54,6 +57,7 @@
     gap: 1rem;
     margin-top: 1.5rem;
   }
+  .actions { display: flex; gap: 0.4rem; flex-shrink: 0; }
   .trips {
     display: flex;
     gap: 0.4rem;

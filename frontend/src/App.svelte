@@ -7,6 +7,7 @@
   import DiveEdit from "./components/DiveEdit.svelte";
   import OwnerMap from "./components/OwnerMap.svelte";
   import OwnerTour from "./components/OwnerTour.svelte";
+  import ImportPage from "./components/ImportPage.svelte";
   import SharesPage from "./components/SharesPage.svelte";
   import ShareApp from "./components/ShareApp.svelte";
 
@@ -33,6 +34,8 @@
   <OwnerTour diveId={route.params.dive} />
 {:else if route.name === "map"}
   <OwnerMap diveId={route.params.dive} mapId={route.params.map} focusMarker={route.query.m || ""} />
+{:else if route.name === "import"}
+  <ImportPage />
 {:else if route.name === "shares"}
   <SharesPage />
 {:else}

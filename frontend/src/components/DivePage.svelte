@@ -1,6 +1,9 @@
 <script>
-  import { app, fileUrl, addMap, addPhoto } from "../lib/app.svelte.js";
+  import { app, fileUrl, addMap, addPhoto, saveDive } from "../lib/app.svelte.js";
   import { prepareMap, preparePhoto } from "../lib/image.js";
+  import { readDiveFile } from "../lib/fitimport.js";
+  import { applyImport } from "../lib/importmatch.js";
+  import { formatDate } from "../lib/format.js";
   import TopBar from "./TopBar.svelte";
   import DiveDetail from "./DiveDetail.svelte";
 
@@ -20,6 +23,26 @@
         const prepared = await prepareMap(f);
         await addMap(id, prepared, files.length > 1 ? prepared.fileName.replace(/\.jpg$/, "").replace(/_/g, " ") : "");
       }
+    } catch (e) {
+      error = e.message;
+    } finally {
+      busy = "";
+    }
+  }
+
+  async function onImportFile(file) {
+    busy = "fit";
+    error = "";
+    try {
+      const imp = await readDiveFile(new Uint8Array(await file.arrayBuffer()), file.name);
+      const other = app.dives.find((d) => d.source === imp.source && d.id !== id);
+      if (other) {
+        error = `That dive is already in your log as ${other.site || "another dive"}.`;
+        return;
+      }
+      const days = Math.abs(new Date(imp.date) - new Date(dive.date)) / 86_400_000;
+      if (days >= 1 && !confirm(`This file is from ${formatDate(imp.date, imp.time)}, but this dive is on ${formatDate(dive.date)}. Use it anyway?`)) return;
+      await saveDive(applyImport(dive, imp));
     } catch (e) {
       error = e.message;
     } finally {
@@ -49,7 +72,7 @@
   {#if !dive.site && !dive.log && !dive.navigation && !maps.length}
     <p class="wrap hint muted">This dive is empty. <a href={`#/dive/${id}/edit`}>Fill in the details</a> or add a map below.</p>
   {/if}
-  <DiveDetail {dive} {maps} {photos} owner {fileUrl} {onAddMaps} {onAddPhotos} {busy} />
+  <DiveDetail {dive} {maps} {photos} owner {fileUrl} {onAddMaps} {onAddPhotos} {onImportFile} {busy} />
 {:else}
   <main class="wrap" style="padding-top:2rem">
     <p>This dive doesn't exist on this device. It may have been deleted.</p>

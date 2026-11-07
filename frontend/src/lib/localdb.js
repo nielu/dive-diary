@@ -17,7 +17,7 @@ import { openDB } from "idb";
 export const COLLECTIONS = ["dives", "maps", "photos"];
 
 export const FIELDS = {
-  dives: ["date", "time", "trip", "site", "team", "leader", "max_depth", "avg_depth", "temp", "duration", "navigation", "log"],
+  dives: ["date", "time", "trip", "site", "team", "leader", "max_depth", "avg_depth", "temp", "duration", "navigation", "log", "gas", "dive_no", "computer", "source", "profile"],
   maps: ["dive", "caption", "sort", "width", "height", "markers", "route"],
   photos: ["dive", "caption", "sort"],
 };

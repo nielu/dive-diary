@@ -21,6 +21,8 @@ frontend/
   src/lib/image.js       downscale + EXIF/GPS strip before upload
   src/lib/tour.js        route geometry + scroll timeline for "Follow the route"
   src/lib/refs.js        "#T1" marker references in the navigation/log text
+  src/lib/fitimport.js   Garmin .fit dive files → dive fields + depth profile
+  src/lib/importmatch.js new dive / fill a hand-written one / already imported
   src/lib/app.svelte.js  reactive state, background sync, actions
   src/components/        UI (MapCanvas = Leaflet, MapScreen = editor,
                          TourPage = "Follow the route")
@@ -173,6 +175,23 @@ doesn't match a marker, like "dive #99", stays plain text. In the editor,
 focusing either text field shows the dive's markers as chips; tapping one
 inserts the reference at the cursor. Labels can use letters, digits and
 `. _ -` between them; a label like `A/1` can't be referenced.
+
+**Importing dives (Garmin).** In the Garmin app, share a dive as a `.fit`
+file (one file per dive), save it to Files, and pick it on **Import** (dive
+list) or with **Add Garmin .fit file** on a dive you already wrote up. The file
+is read in the browser with Garmin's FIT SDK (loaded only when importing, and
+cached for offline use). It fills the date and time in the dive site's local
+time, max and average depth, the lowest water temperature, underwater time,
+dive number, gas (the starting mix plus any gas switched to), the computer
+model and a depth profile of up to 360 points. GPS positions in the file are
+left out on purpose. For a new dive, the site name is guessed from the file
+name. A hand-written dive on the same day with a time in within 45 minutes
+(or the only untimed dive that day) gets the computer's numbers and profile;
+its site, notes and a gas you typed stay. Each import remembers its source
+(`garmin:<start time>`), so importing the same file again is recognised.
+The profile chart scrubs by touch, mouse or arrow keys and also shows on
+share links. `tests/fixtures/make-dive-fit.mjs` writes the synthetic dives
+the tests use.
 
 **Share links.** A share is a random 32-character token tied to a trip (or to
 all dives). `GET /api/share/{token}` returns that trip's dives, maps and

@@ -10,6 +10,7 @@ export const LIMITS = {
   mapCaption: 200,
   photoCaption: 500,
   shareLabel: 200,
+  gas: 200,
 };
 
 /** Human names for server field names, used in sync error messages. */
@@ -34,4 +35,9 @@ export const FIELD_LABELS = {
   height: "Height",
   markers: "Markers",
   route: "Route",
+  gas: "Gas",
+  dive_no: "Dive number",
+  computer: "Dive computer",
+  source: "Imported from",
+  profile: "Depth profile",
 };

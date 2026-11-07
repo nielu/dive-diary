@@ -133,6 +133,12 @@
       <label class="field">Water temp (°C)
         <input inputmode="decimal" type="number" step="0.1" value={form.temp || ""} oninput={(e) => (form.temp = num(e.currentTarget.value))} />
       </label>
+      <label class="field">Gas
+        <input bind:value={form.gas} maxlength={LIMITS.gas} placeholder="e.g. Air, EAN32" />
+      </label>
+      <label class="field">Dive number
+        <input inputmode="numeric" type="number" step="1" min="0" value={form.dive_no || ""} oninput={(e) => (form.dive_no = Math.round(num(e.currentTarget.value)))} />
+      </label>
       <label class="field">Run time (min)
         <input inputmode="numeric" type="number" step="1" min="0" value={form.duration || ""} oninput={(e) => (form.duration = Math.round(num(e.currentTarget.value)))} />
       </label>
