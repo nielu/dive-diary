@@ -76,6 +76,16 @@ test("log a dive with a map, markers, route and photos; work offline; share it",
   await expect(page.locator(".grid img")).toHaveCount(1);
   await expect(page.locator("button.sync")).toHaveText(/Synced/, { timeout: 20_000 });
 
+  // the dive page shows the light preview; the map viewer swaps in the full map
+  const preview = page.locator(".preview img");
+  await expect(preview).toHaveAttribute("src", /thumb=1200x1200f/);
+  await expect.poll(() => preview.evaluate((i) => i.complete && i.naturalWidth)).toBe(1200);
+  await page.getByRole("link", { name: /Open map/ }).click();
+  const overlay = page.locator(".leaflet-image-layer");
+  await expect(overlay).not.toHaveAttribute("src", /thumb=/);
+  await expect.poll(() => overlay.evaluate((i) => i.complete && i.naturalWidth)).toBe(2400);
+  await page.getByRole("link", { name: "Back to dive" }).click();
+
   // offline: the app opens, a new dive is saved, the map still loads
   await page.waitForTimeout(1500); // let the offline cache warm up
   await context.setOffline(true);
@@ -94,6 +104,7 @@ test("log a dive with a map, markers, route and photos; work offline; share it",
   await expect(page.locator("button.sync")).toContainText("Offline");
 
   await page.getByRole("link", { name: /Cenote Dos Ojos/ }).first().click();
+  await expect.poll(() => page.locator(".preview img").evaluate((i) => i.complete && i.naturalWidth)).toBeGreaterThan(0);
   await page.getByRole("link", { name: /Open map/ }).click();
   await expect(page.locator(".leaflet-image-layer")).toBeVisible();
   await page.waitForTimeout(800);
@@ -128,8 +139,12 @@ test("log a dive with a map, markers, route and photos; work offline; share it",
   const thumb = fam.locator(".grid img").first();
   await expect(thumb).toHaveAttribute("src", new RegExp(`/api/share/${token}/file/photos/`));
   await expect.poll(() => thumb.evaluate((img) => img.complete && img.naturalWidth)).toBeGreaterThan(0);
+  const famPreview = fam.locator(".preview img");
+  await expect(famPreview).toHaveAttribute("src", new RegExp(`/api/share/${token}/file/maps/.*thumb=1200x1200f`));
+  await expect.poll(() => famPreview.evaluate((i) => i.complete && i.naturalWidth)).toBe(1200);
   await fam.getByRole("link", { name: /Open map/ }).click();
   await expect(fam.locator(".line-arrow")).toHaveCount(3);
+  await expect(fam.locator(".leaflet-image-layer")).not.toHaveAttribute("src", /thumb=/);
   await expect(fam.getByRole("radio", { name: "Markers" })).toHaveCount(0);
   await fam.goto(`/#/s/${"x".repeat(32)}`);
   await expect(fam.getByRole("heading", { name: "Link unavailable" })).toBeVisible();

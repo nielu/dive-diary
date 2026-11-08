@@ -9,9 +9,12 @@
   import Markdown from "./Markdown.svelte";
   import PhotoGrid from "./PhotoGrid.svelte";
   import { markerIndex } from "../lib/refs.js";
+  import { THUMBS } from "../lib/schema.js";
 
   /** @type {{ dive: any, maps: any[], photos: any[], fileUrl: (r: any, thumb?: string) => string, backHref: string }} */
   let { dive, maps, photos, fileUrl, backHref } = $props();
+  let fullReady = $state({});
+  let previewFailed = $state({});
 
   const refs = $derived(markerIndex(maps));
   // backHref is the dive page, so map links hang off it
@@ -170,7 +173,12 @@
     const ro = new ResizeObserver(() => measure());
     for (const el of sections) if (el) ro.observe(el);
     // preload every chapter's map
-    for (const c of chapters) new Image().src = fileUrl(c.map);
+    // Each map starts as its light preview; the full map replaces it once downloaded.
+    for (const c of chapters) {
+      const img = new Image();
+      img.onload = () => (fullReady[c.map.id] = true);
+      img.src = fileUrl(c.map);
+    }
     return () => {
       ro.disconnect();
       if (raf) cancelAnimationFrame(raf);
@@ -217,7 +225,12 @@
         style:height={`${ch.H}px`}
         style:transform={cam && cam.chapter === i ? `translate(${cam.ax - cam.cx * cam.s}px, ${cam.ay - cam.cy * cam.s}px) scale(${cam.s})` : "none"}
       >
-        <img src={fileUrl(ch.map)} alt="" draggable="false" />
+        <img
+          src={fullReady[ch.map.id] || previewFailed[ch.map.id] ? fileUrl(ch.map) : fileUrl(ch.map, THUMBS.mapPreview)}
+          alt=""
+          draggable="false"
+          onerror={() => (previewFailed[ch.map.id] = true)}
+        />
       </div>
     {/each}
 

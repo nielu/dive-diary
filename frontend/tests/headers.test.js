@@ -29,7 +29,7 @@ before(async () => {
   const dive = await (await get("/api/collections/dives/records", { method: "POST", headers: json, body: JSON.stringify({ date: "2026-11-01", trip: "Headers trip" }) })).json();
   const form = new FormData();
   form.append("dive", dive.id);
-  form.append("image", new Blob([fs.readFileSync(new globalThis.URL("../e2e/fixtures/photo0.jpg", import.meta.url))], { type: "image/jpeg" }), "m.jpg");
+  form.append("image", new Blob([fs.readFileSync(new globalThis.URL("../e2e/fixtures/map.png", import.meta.url))], { type: "image/png" }), "m.png"); // 2400×1600
   map = await (await get("/api/collections/maps/records", { method: "POST", headers: owner, body: form })).json();
   share = "H".repeat(32);
   await get("/api/collections/shares/records", { method: "POST", headers: json, body: JSON.stringify({ token: share, trip: "Headers trip" }) });
@@ -60,6 +60,19 @@ test("owner image links stay in the browser only", async () => {
   assert.equal(r.cc, "private, max-age=2592000, immutable");
   const thumb = await cache(`/api/files/maps/${map.id}/${map.image}?thumb=480x0&token=${token}`);
   assert.equal(thumb.cc, "private, max-age=2592000, immutable");
+});
+
+const pngWidth = (buf) => new DataView(buf).getUint32(16); // IHDR width
+
+test("map previews are at most 1200 px, for the owner and through share links", async () => {
+  const { token } = await (await get("/api/files/token", { method: "POST", headers: owner })).json();
+  const full = await (await get(`/api/files/maps/${map.id}/${map.image}?token=${token}`)).arrayBuffer();
+  const preview = await (await get(`/api/files/maps/${map.id}/${map.image}?thumb=1200x1200f&token=${token}`)).arrayBuffer();
+  assert.equal(pngWidth(full), 2400);
+  assert.equal(pngWidth(preview), 1200);
+  const shared = await get(`/api/share/${share}/file/maps/${map.id}/${map.image}?thumb=1200x1200f`);
+  assert.equal(shared.status, 200);
+  assert.equal(pngWidth(await shared.arrayBuffer()), 1200);
 });
 
 test("share data and share images keep their own no-CDN headers", async () => {

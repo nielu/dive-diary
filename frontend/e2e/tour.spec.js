@@ -63,6 +63,10 @@ test("follow the route: waypoints, photos on markers, read-only tour", async ({ 
   await fam.getByRole("link", { name: "Follow the route" }).click();
   await expect(fam.getByRole("heading", { name: "Sistema Tour" })).toBeVisible();
   await expect(fam.locator("section.stop")).toHaveCount(3); // the off-route marker has no card
+  // the background map starts light and becomes the full map once downloaded
+  const bg = fam.locator(".world img");
+  await expect(bg).not.toHaveAttribute("src", /thumb=/);
+  await expect.poll(() => bg.evaluate((i) => i.complete && i.naturalWidth)).toBe(2400);
 
   await scrollToBlock(fam, "section.travel", 0, 0.6);
   await expect(fam.locator(".diver")).toHaveCount(1);

@@ -26,6 +26,6 @@ function shareCoversDive(share, dive) {
 }
 
 // Thumbnail sizes the app asks for (must match the fields' thumbs).
-const THUMBS = { maps: ["480x0"], photos: ["480x480f"] };
+const THUMBS = { maps: ["480x0", "1200x1200f"], photos: ["480x480f"] };
 
 module.exports = { findShare, shareCoversDive, THUMBS };

@@ -13,6 +13,12 @@ export const LIMITS = {
   gas: 200,
 };
 
+/** Thumbnail sizes the server makes (see the image fields' thumbs). */
+export const THUMBS = {
+  mapPreview: "1200x1200f", // dive page cards; first image in the map viewer and tour
+  photo: "480x480f",
+};
+
 /** Human names for server field names, used in sync error messages. */
 export const FIELD_LABELS = {
   date: "Date",

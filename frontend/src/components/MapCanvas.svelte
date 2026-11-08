@@ -8,6 +8,7 @@
 
   let {
     src,
+    previewSrc = "", // lighter image shown until the full map has loaded
     width,
     height,
     markers = [],
@@ -27,6 +28,7 @@
   let map = $state.raw(null);
   let layer;
   let failed = $state(false);
+  let lowRes = $state(false);
 
   const W = $derived(width || 1000);
   const H = $derived(height || 1000);
@@ -48,8 +50,27 @@
       bounceAtZoomLimits: false,
     });
     if (!L.Browser.mobile) L.control.zoom({ position: "bottomright" }).addTo(m);
-    const overlay = L.imageOverlay(src, bounds).addTo(m);
-    overlay.on("error", () => (failed = true));
+    // Start with the light preview, swap in the full map once it's downloaded.
+    let showingFull = !previewSrc || previewSrc === src;
+    const overlay = L.imageOverlay(showingFull ? src : previewSrc, bounds).addTo(m);
+    overlay.on("error", () => {
+      if (!showingFull) {
+        showingFull = true; // no preview here: go straight to the full map
+        overlay.setUrl(src);
+      } else {
+        failed = true;
+      }
+    });
+    if (!showingFull) {
+      const full = new Image();
+      full.onload = () => {
+        showingFull = true;
+        lowRes = false;
+        overlay.setUrl(src);
+      };
+      full.onerror = () => (lowRes = true);
+      full.src = src;
+    }
     m.fitBounds(bounds, { padding: [12, 12] });
     m.setMinZoom(m.getZoom() - 1);
     m.setMaxBounds(bounds.pad(0.3));
@@ -153,6 +174,9 @@
 </script>
 
 <div class="canvas" bind:this={el}></div>
+{#if lowRes && !failed}
+  <p class="lowres">Showing a lighter version of this map. The full one isn't available offline.</p>
+{/if}
 {#if failed}
   <p class="failed">This map image isn't available offline yet. Open it once with a connection and it will be kept on this device.</p>
 {/if}
@@ -165,6 +189,21 @@
   .canvas:global([data-mode="marker"]),
   .canvas:global([data-mode="route"]) {
     cursor: crosshair;
+  }
+  .lowres {
+    position: absolute;
+    top: calc(env(safe-area-inset-top) + 62px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 500;
+    margin: 0;
+    max-width: calc(100% - 24px);
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    border: 1px solid var(--rule);
+    font-size: 0.85rem;
+    text-align: center;
   }
   .failed {
     position: absolute;

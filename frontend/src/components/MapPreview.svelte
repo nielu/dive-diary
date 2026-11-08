@@ -3,7 +3,10 @@
   // No Leaflet here, so it never fights page scrolling on a phone.
   import { segmentColor } from "../lib/mapstyle.js";
 
-  let { map, src, href } = $props();
+  // src: the light preview; fallback: the full map, used if the preview can't
+  // load (offline, and only the full map was kept on this device)
+  let { map, src, fallback = "", href } = $props();
+  let useFallback = $state(false);
 
   const w = $derived(map.width || 1000);
   const h = $derived(map.height || 1000);
@@ -15,7 +18,14 @@
 
 <a class="preview" {href} aria-label={`Open map${map.caption ? `: ${map.caption}` : ""}`}>
   <div class="frame" style:aspect-ratio={`${w} / ${h}`} style:width={`min(100%, calc(70vh * ${w} / ${h}))`}>
-    <img {src} alt={map.caption || "Cave map"} loading="lazy" />
+    <img
+      src={useFallback && fallback ? fallback : src}
+      alt={map.caption || "Cave map"}
+      loading="lazy"
+      onerror={() => {
+        if (fallback && !useFallback) useFallback = true;
+      }}
+    />
     <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-hidden="true">
       {#each route as seg, i}
         {#if seg.length > 1}

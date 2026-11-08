@@ -1,6 +1,7 @@
 <script>
   import { untrack } from "svelte";
   import MapCanvas from "./MapCanvas.svelte";
+  import { THUMBS } from "../lib/schema.js";
   import PhotoGrid from "./PhotoGrid.svelte";
   import { segmentColor } from "../lib/mapstyle.js";
 
@@ -45,6 +46,8 @@
   const index = $derived(maps.findIndex((m) => m.id === map.id));
   const sorted = $derived([...markers].sort((a, b) => (a.label || "").localeCompare(b.label || "", undefined, { numeric: true })));
   const hasRoute = $derived(route.some((s) => s.length > 0));
+  // shown first while the full-resolution map loads
+  const previewSrc = $derived(fileUrl(map, THUMBS.mapPreview) || "");
   const selectedPhotos = $derived(selected ? photos.filter((p) => (selected.photos || []).includes(p.id)) : []);
   let uploading = $state(false);
 
@@ -219,6 +222,7 @@
 <div class="screen">
   <MapCanvas
     {src}
+    {previewSrc}
     width={map.width}
     height={map.height}
     {markers}

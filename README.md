@@ -146,7 +146,7 @@ failing too. The sync status then reads "N couldn't sync"; tapping it lists
 each one with the reason and a link to fix it. Being offline, the server
 restarting or the rate limit kicking in just pause the sync.
 
-The app shell is precached by the service worker. Maps and photo thumbnails of
+The app shell is precached by the service worker. Maps (full and preview) and photo thumbnails of
 the current trip (the newest dive's trip, plus the 30 days before it) are
 downloaded into the offline cache after each sync, so maps uploaded at home
 open at the site; older dives work offline if they were opened before. A
@@ -158,7 +158,11 @@ a day.
 
 **Maps.** Map photos are downscaled to max 4000 px, photos to 2560 px, and
 both are re-encoded as JPEG in the browser, which strips EXIF data including
-GPS. Markers are `{id, x, y, label, note}` and the route is a list of line
+GPS. Dive pages show a light preview of each map (fitted inside 1200 px,
+roughly 8× smaller than a 4000 px map photo); the map viewer and the route
+tour open on that preview and swap in the full map once it has downloaded.
+Offline, if only the preview was kept, the viewer says so and shows it.
+Markers are `{id, x, y, label, note}` and the route is a list of line
 segments `[[{x, y}, ...], ...]`, all with x/y normalized to 0..1 from the
 image's top-left, so they're independent of resolution. In Route mode,
 tapping a marker adds a point exactly on it.

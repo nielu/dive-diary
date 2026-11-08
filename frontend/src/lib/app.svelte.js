@@ -4,6 +4,7 @@ import PocketBase, { getTokenPayload } from "pocketbase";
 import * as local from "./localdb.js";
 import { syncAll, classify, describe } from "./sync.js";
 import { offlineDiveIds } from "./offline.js";
+import { THUMBS } from "./schema.js";
 
 export const pb = new PocketBase(location.origin);
 
@@ -145,7 +146,7 @@ async function warmCache() {
     const keep = offlineDiveIds(app.dives);
     const cache = await caches.open("dive-files");
     const urls = [
-      ...app.maps.filter((m) => keep.has(m.dive) && !m._file && m.image).map((m) => fileUrl(m)),
+      ...app.maps.filter((m) => keep.has(m.dive) && !m._file && m.image).flatMap((m) => [fileUrl(m), fileUrl(m, THUMBS.mapPreview)]),
       ...app.photos.filter((p) => keep.has(p.dive) && !p._file && p.image).map((p) => fileUrl(p, "480x480f")),
     ];
     for (const url of urls) {

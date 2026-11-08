@@ -4,6 +4,7 @@
   import MapPreview from "./MapPreview.svelte";
   import PhotoGrid from "./PhotoGrid.svelte";
   import DepthProfile from "./DepthProfile.svelte";
+  import { THUMBS } from "../lib/schema.js";
   import { markerIndex } from "../lib/refs.js";
 
   /** @type {{ dive: any, maps: any[], photos: any[], base?: string, owner?: boolean, fileUrl: (r: any, thumb?: string) => string, onAddMaps?: (files: File[]) => void, onAddPhotos?: (files: File[]) => void, onImportFile?: (file: File) => void, busy?: string }} */
@@ -96,7 +97,7 @@
       </div>
       {#each maps as m (m.id)}
         <figure>
-          <MapPreview map={m} src={fileUrl(m)} href={`#${base}/dive/${dive.id}/map/${m.id}`} />
+          <MapPreview map={m} src={fileUrl(m, THUMBS.mapPreview)} fallback={fileUrl(m)} href={`#${base}/dive/${dive.id}/map/${m.id}`} />
           <figcaption>
             <span>{m.caption || "Untitled map"}</span>
             <span class="muted small">
