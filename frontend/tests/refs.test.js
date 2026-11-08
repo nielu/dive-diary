@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { markerIndex, findRefs, createRenderer, isReferenceable } from "../src/lib/refs.js";
+import { markerIndex, findRefs, createRenderer, isReferenceable, findLabels } from "../src/lib/refs.js";
 
 const maps = [
   { id: "mapA", markers: [{ id: "a1", label: "T1", note: "Go left" }, { id: "a2", label: "3" }, { id: "a3", label: "J-2" }] },
@@ -49,4 +49,9 @@ test("renderer: an unknown #tag earlier in the paragraph doesn't hide a later re
   const html = createRenderer(index, href).parse("Dive #2 of the day, turned at #T1");
   assert.equal((html.match(/class="mref"/g) || []).length, 1);
   assert.match(html, /Dive #2 of the day, turned at <a class="mref"/);
+});
+
+test("findLabels lists each #label once, in order, as first written", () => {
+  assert.deepEqual(findLabels("#T1 left, then #J5 (4 m gap). Back at #t1, #3. abc#9 and &#39; aren't labels."), ["T1", "J5", "3"]);
+  assert.deepEqual(findLabels(""), []);
 });

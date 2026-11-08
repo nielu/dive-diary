@@ -208,6 +208,12 @@ The profile chart scrubs by touch, mouse or arrow keys and also shows on
 share links. `tests/fixtures/make-dive-fit.mjs` writes the synthetic dives
 the tests use.
 
+**Plan beside the map.** The map screen has a **Plan** button that shows the
+dive's navigation text over the map (open by default when editing your own
+maps; the choice is remembered). `#T1` references in it select and zoom to
+that marker. In Markers mode, labels the plan mentions that no map has yet
+are listed; tap one, then tap the map, and the marker gets that label.
+
 **Share links.** A share is a random 32-character token tied to a trip (or to
 all dives). `GET /api/share/{token}` returns that trip's dives, maps and
 photos without auth; the collections themselves stay owner-only. Image files

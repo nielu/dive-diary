@@ -46,7 +46,7 @@ test("#T1 references link to markers on the dive page, the editor and the tour",
   await page.goBack();
   await navSec.locator("a.mref", { hasText: "B1" }).click();
   await expect(page.getByText("Checkpoint on sheet two.")).toBeVisible();
-  await expect(page.getByText("Second sheet")).toBeVisible();
+  await expect(page.getByText("Second sheet", { exact: true })).toBeVisible(); // the map caption (the plan panel mentions it too)
   await expect(page.locator(".line-arrow.selected")).toHaveText("B1");
 
   // editing after arriving from a link doesn't re-center the map

@@ -33,6 +33,20 @@ export function markerIndex(maps) {
   return index;
 }
 
+/** Every "#label" written in the text, in order, each once (as first written). */
+export function findLabels(text) {
+  const seen = new Set();
+  const out = [];
+  for (const m of (text || "").matchAll(new RegExp(REF.source, "g"))) {
+    const key = m[1].toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push(m[1]);
+    }
+  }
+  return out;
+}
+
 /** Find references in plain text (used by tests and the editor). */
 export function findRefs(text, index) {
   const re = new RegExp(REF.source, "g");

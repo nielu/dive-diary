@@ -9,10 +9,18 @@
   import TopBar from "./TopBar.svelte";
   import DepthProfile from "./DepthProfile.svelte";
 
+  // Files read so far, with what you typed for them (site, trip, include).
   let items = $state([]);
   let reading = $state(false);
   let importing = $state(false);
-  const chosen = $derived(items.filter((i) => i.include));
+
+  // How each file relates to your log is worked out live, so dives that
+  // arrive from the first sync after signing in are still matched.
+  const ok = $derived(items.filter((i) => i.data));
+  const plan = $derived(planImport(ok.map((i) => i.data), app.dives));
+  const planFor = (item) => (item.data ? plan[ok.indexOf(item)] : { kind: "error" });
+  const included = (item) => !["duplicate", "error"].includes(planFor(item).kind) && item.include !== false;
+  const chosen = $derived(items.filter(included));
 
   async function pick(e) {
     const files = [...(e.currentTarget.files || [])];
@@ -29,39 +37,35 @@
       }
     }
     read.sort((a, b) => (a.data?.source || "").localeCompare(b.data?.source || ""));
-    const ok = read.filter((r) => r.data);
-    const plan = planImport(ok.map((r) => r.data), app.dives);
     const trip = lastTrip();
-    items = read.map((r) => {
-      if (!r.data) return { ...r, kind: "error", include: false };
-      const p = plan[ok.indexOf(r)];
-      return { ...r, kind: p.kind, dive: p.dive, include: p.kind !== "duplicate", site: r.data.site, trip };
-    });
+    items = read.map((r) => (r.data ? { ...r, site: r.data.site, trip, include: true } : r));
     reading = false;
   }
 
   async function run() {
     importing = true;
     let last = null;
-    for (const item of chosen) {
-      if (item.kind === "fill") {
-        const current = app.dives.find((d) => d.id === item.dive.id) || item.dive;
-        last = await saveDive(applyImport(current, item.data));
-      } else if (item.kind === "new") {
+    // Fixed at the moment you tap Import; saving changes the log as we go.
+    const batch = chosen.map((item) => ({ ...planFor(item), data: $state.snapshot(item.data), site: item.site, trip: item.trip }));
+    for (const b of batch) {
+      if (b.kind === "fill") {
+        const current = app.dives.find((d) => d.id === b.dive.id) || b.dive;
+        last = await saveDive(applyImport(current, b.data));
+      } else if (b.kind === "new") {
         last = await saveDive({
           id: newId(),
           team: "",
           leader: "",
           navigation: "",
           log: "",
-          ...item.data,
-          site: item.site.trim(),
-          trip: item.trip.trim(),
+          ...b.data,
+          site: (b.site || "").trim(),
+          trip: (b.trip || "").trim(),
         });
       }
     }
     importing = false;
-    go(chosen.length === 1 && last ? `/dive/${last.id}` : "/");
+    go(batch.length === 1 && last ? `/dive/${last.id}` : "/");
   }
 
   function stats(d) {
@@ -93,8 +97,9 @@
   {#if items.length}
     <ul class="items">
       {#each items as item, i (item.name + i)}
-        <li class={item.kind}>
-          {#if item.kind === "error"}
+        {@const p = planFor(item)}
+        <li class={p.kind}>
+          {#if p.kind === "error"}
             <p class="name">{item.name}</p>
             <p class="error">{item.error}</p>
           {:else}
@@ -103,15 +108,15 @@
                 <p class="when">{formatDate(item.data.date, item.data.time)}{item.data.dive_no ? `, dive ${item.data.dive_no}` : ""}</p>
                 <p class="stats">{#each stats(item.data) as s}<span>{s}</span>{/each}</p>
               </div>
-              {#if item.kind !== "duplicate"}
+              {#if p.kind !== "duplicate"}
                 <label class="include">
-                  <input type="checkbox" bind:checked={item.include} />
+                  <input type="checkbox" checked={item.include !== false} onchange={(e) => (item.include = e.currentTarget.checked)} />
                   Import
                 </label>
               {/if}
             </div>
             <DepthProfile profile={item.data.profile} compact />
-            {#if item.kind === "new"}
+            {#if p.kind === "new"}
               <div class="fields">
                 <label class="field">Site
                   <input bind:value={item.site} maxlength={LIMITS.site} placeholder="Cenote, cave or entrance" />
@@ -121,10 +126,10 @@
                 </label>
               </div>
               <p class="note">Adds a new dive.</p>
-            {:else if item.kind === "fill"}
-              <p class="note">Adds the computer's numbers and profile to <a href={`#/dive/${item.dive.id}`}>{item.dive.site || "your dive"}</a>{item.dive.time ? ` (${item.dive.time})` : ""}. Your notes stay.</p>
+            {:else if p.kind === "fill"}
+              <p class="note">Adds the computer's numbers and profile to <a href={`#/dive/${p.dive.id}`}>{p.dive.site || "your dive"}</a>{p.dive.time ? ` (${p.dive.time})` : ""}. Your notes stay.</p>
             {:else}
-              <p class="note muted">Already in your log as <a href={`#/dive/${item.dive?.id}`}>{item.dive?.site || "a dive"}</a>.</p>
+              <p class="note muted">Already in your log as <a href={`#/dive/${p.dive?.id}`}>{p.dive?.site || "a dive"}</a>.</p>
             {/if}
           {/if}
         </li>

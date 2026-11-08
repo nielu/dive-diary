@@ -4,6 +4,8 @@
   import { THUMBS } from "../lib/schema.js";
   import PhotoGrid from "./PhotoGrid.svelte";
   import { segmentColor } from "../lib/mapstyle.js";
+  import Markdown from "./Markdown.svelte";
+  import { markerIndex, findLabels } from "../lib/refs.js";
 
   /**
    * @type {{
@@ -50,6 +52,45 @@
   const previewSrc = $derived(fileUrl(map, THUMBS.mapPreview) || "");
   const selectedPhotos = $derived(selected ? photos.filter((p) => (selected.photos || []).includes(p.id)) : []);
   let uploading = $state(false);
+
+  // ---------- navigation plan panel ----------
+  // The dive's navigation text beside the map, so markers can be placed by it.
+  const PLAN_KEY = "dd:mapPlanOpen";
+  let planOpen = $state(readPlanOpen());
+  function readPlanOpen() {
+    try {
+      const v = localStorage.getItem(PLAN_KEY);
+      return v === null ? owner : v === "1"; // open by default when editing your own maps
+    } catch {
+      return owner;
+    }
+  }
+  function togglePlan() {
+    planOpen = !planOpen;
+    try {
+      localStorage.setItem(PLAN_KEY, planOpen ? "1" : "0");
+    } catch {}
+  }
+  const plan = $derived((dive?.navigation || "").trim());
+  // the dive's markers on every map, with this map's unsaved edits
+  const refs = $derived(markerIndex(maps.map((m) => (m.id === map.id ? { ...m, markers } : m))));
+  const refHref = (r) => `${mapHref({ id: r.mapId })}?m=${r.markerId}`;
+  function onRef(ref, e) {
+    if (ref.mapId !== map.id) return; // on another map: follow the link there
+    e.preventDefault();
+    pendingLabel = "";
+    selectedId = ref.markerId;
+    sheet = "marker";
+    focus = { id: ref.markerId, n: (focus?.n || 0) + 1 };
+  }
+  // labels the plan mentions that no map has yet (marker labels are up to 4 characters)
+  const unplaced = $derived(owner ? findLabels(plan).filter((l) => l.length <= 4 && !refs.has(l.toLowerCase())) : []);
+  let pendingLabel = $state("");
+  function placeNext(label) {
+    pendingLabel = pendingLabel === label ? "" : label;
+    sheet = null;
+    selectedId = null;
+  }
 
   function togglePhoto(id) {
     if (!selected) return;
@@ -103,6 +144,7 @@
 
   function setMode(m) {
     mode = m;
+    pendingLabel = "";
     sheet = null;
     selectedId = null;
     if (m === "route" && route.length === 0) {
@@ -115,7 +157,8 @@
 
   function onMapTap(pt) {
     if (mode === "marker") {
-      const m = { id: newMarkerId(), x: pt.x, y: pt.y, label: nextLabel(), note: "" };
+      const m = { id: newMarkerId(), x: pt.x, y: pt.y, label: pendingLabel || nextLabel(), note: "" };
+      pendingLabel = "";
       markers.push(m);
       selectedId = m.id;
       sheet = "marker";
@@ -257,7 +300,30 @@
         </nav>
       {/if}
     </div>
+    {#if plan}
+      <button class="pill plan-toggle" aria-expanded={planOpen} aria-controls="plan-panel" onclick={togglePlan}>Plan</button>
+    {/if}
   </header>
+
+  {#if plan && planOpen}
+    <section id="plan-panel" class="plan" aria-label="Navigation plan">
+      <div class="plan-head">
+        <h2>Navigation</h2>
+        {#if owner}<a class="plan-edit" href={`${backHref}/edit`}>Edit</a>{/if}
+      </div>
+      {#if mode === "marker" && unplaced.length}
+        <div class="unplaced">
+          <span class="muted small">Not on a map yet. Tap one, then tap the map to place it.</span>
+          <div class="chips">
+            {#each unplaced as label (label)}
+              <button class="chip" aria-pressed={pendingLabel === label} onclick={() => placeNext(label)}>{label}</button>
+            {/each}
+          </div>
+        </div>
+      {/if}
+      <Markdown text={plan} {refs} hrefFor={refHref} {onRef} />
+    </section>
+  {/if}
 
   {#if sheet === "marker" && selected}
     <div class="sheet" class:raised={mode === "marker"} role="dialog" aria-label="Marker">
@@ -335,7 +401,7 @@
       </div>
       <p class="hint">Tap the map to extend the line. Tap a marker to route through it. Drag a point to move it.</p>
     {:else if mode === "marker" && sheet !== "marker"}
-      <p class="hint">Tap the map to drop a marker. Tap a marker to edit it.</p>
+      <p class="hint">{pendingLabel ? `Tap the map to place ${pendingLabel}.` : "Tap the map to drop a marker. Tap a marker to edit it."}</p>
     {/if}
 
     <div class="modes">
@@ -381,6 +447,45 @@
     pointer-events: none;
   }
   .top > * { pointer-events: auto; }
+  .plan-toggle { padding: 0 0.95rem; font-weight: 700; flex-shrink: 0; }
+  .plan-toggle[aria-expanded="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .plan {
+    position: absolute;
+    z-index: 1050;
+    top: calc(env(safe-area-inset-top) + 60px);
+    left: 8px;
+    right: 8px;
+    max-height: 32vh;
+    overflow: auto;
+    background: color-mix(in srgb, var(--surface) 95%, transparent);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-m);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    padding: 0.7rem 0.9rem 0.8rem;
+  }
+  .plan :global(.prose) { font-size: 0.98rem; line-height: 1.5; }
+  .plan-head {
+    position: sticky;
+    top: -0.7rem; /* stays put while the text scrolls */
+    margin: -0.7rem -0.9rem 0.25rem;
+    padding: 0.7rem 0.9rem 0.3rem;
+    background: var(--surface);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    z-index: 1;
+  }
+  .plan-head h2 { font-size: 1rem; }
+  .plan-edit { font-weight: 600; font-size: 0.9rem; color: var(--accent-text); }
+  .unplaced { margin-bottom: 0.6rem; padding-bottom: 0.6rem; border-bottom: 1px solid var(--rule); display: grid; gap: 0.4rem; }
+  .unplaced .muted { margin: 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .chip { min-height: 36px; padding: 0.2rem 0.8rem; font-size: 0.9rem; }
+  .chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  @media (min-width: 900px) {
+    .plan { right: auto; width: 360px; max-height: calc(100dvh - 160px); }
+  }
   .pill {
     background: color-mix(in srgb, var(--surface) 92%, transparent);
     backdrop-filter: blur(8px);
