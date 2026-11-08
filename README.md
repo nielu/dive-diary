@@ -96,6 +96,17 @@ Every push to the repository redeploys automatically; the volume keeps your
 data. Hobby includes up to 5 GB of volume storage, which fits thousands of
 photos at the app's upload size.
 
+### Railway CDN
+
+Railway's CDN (Settings → **Edge** → **Enable CDN Caching**, free) serves the
+app's code, fonts and icons from a location near each visitor. The server
+sends the caching headers it needs (`pb_hooks/main.pb.js`): hashed files are
+cached for a year; the start page, service worker and manifest never at the
+CDN, so updates reach phones right away; owner image links and everything
+shared stay out of the CDN, so turning a share link off still works. Leave
+HTML caching on **Auto** and purge-on-deploy at its default. To see which
+CDN location serves you, open `/.railway/cdn-trace` on your app.
+
 ### Other hosts
 
 The service worker (offline mode) needs HTTPS.

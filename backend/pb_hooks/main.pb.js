@@ -3,6 +3,34 @@
 // Note: each PocketBase hook handler runs in its own isolated JS context,
 // so shared helpers are require()-d inside each handler.
 
+// Caching rules, mainly for Railway's CDN. Without them the CDN would cache
+// the (unhashed) service worker for its default 2 hours, delaying app updates,
+// and keep owner image links, which carry an access token, for 30 days.
+//   - files with a content hash in the name: a year, immutable
+//   - icons: a day
+//   - everything else in the app (start page, sw.js, registerSW.js, manifest,
+//     unknown paths that fall back to index.html): browser only, revalidated
+//   - /api/files: browser only (the CDN keys on the full URL, token included)
+// Share data and share images set their own no-store / private headers, so
+// turning a link off still works with the CDN on. The dashboard (/_/) is left alone.
+routerUse((e) => {
+  const path = e.request.url.path;
+  const h = e.response.header();
+  if (path.startsWith("/api/")) {
+    if (path.startsWith("/api/files/")) h.set("Cache-Control", "private, max-age=2592000, immutable");
+  } else if (!path.startsWith("/_/")) {
+    if (path.startsWith("/assets/") || /^\/workbox-[0-9a-f]+\.js$/.test(path)) {
+      h.set("Cache-Control", "public, max-age=31536000, immutable");
+    } else if (/^\/icon[\w-]*\.(png|svg)$/.test(path)) {
+      h.set("Cache-Control", "public, max-age=86400");
+    } else {
+      h.set("Cache-Control", "private, no-cache");
+      if (path === "/manifest.webmanifest") h.set("Content-Type", "application/manifest+json");
+    }
+  }
+  return e.next();
+});
+
 // Read-only share endpoint for family viewers. No auth: the unguessable token
 // is the credential. Only dives in the shared trip (or all, if trip is empty)
 // are returned. Delete the share record to revoke the link.
