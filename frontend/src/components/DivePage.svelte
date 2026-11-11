@@ -1,6 +1,7 @@
 <script>
-  import { app, fileUrl, addMap, addPhoto, saveDive } from "../lib/app.svelte.js";
-  import { prepareMap, preparePhoto } from "../lib/image.js";
+  import { app, fileUrl, addMap, saveDive } from "../lib/app.svelte.js";
+  import { prepareMap } from "../lib/image.js";
+  import { addMedia } from "../lib/media.js";
   import { readDiveFile } from "../lib/fitimport.js";
   import { applyImport } from "../lib/importmatch.js";
   import { formatDate } from "../lib/format.js";
@@ -13,7 +14,9 @@
   const maps = $derived(app.maps.filter((m) => m.dive === id));
   const photos = $derived(app.photos.filter((p) => p.dive === id));
   let busy = $state("");
+  let progress = $state("");
   let error = $state("");
+  let notice = $state("");
 
   async function onAddMaps(files) {
     busy = "maps";
@@ -53,12 +56,15 @@
   async function onAddPhotos(files) {
     busy = "photos";
     error = "";
+    notice = "";
     try {
-      for (const f of files) await addPhoto(id, await preparePhoto(f));
+      const { notes } = await addMedia(id, files, { onStatus: (s) => (progress = s) });
+      notice = notes.join(" ");
     } catch (e) {
       error = e.message;
     } finally {
       busy = "";
+      progress = "";
     }
   }
 </script>
@@ -69,10 +75,11 @@
 
 {#if dive}
   {#if error}<p class="wrap error" role="alert">{error}</p>{/if}
+  {#if notice}<p class="wrap notice" role="status">{notice}</p>{/if}
   {#if !dive.site && !dive.log && !dive.navigation && !maps.length}
     <p class="wrap hint muted">This dive is empty. <a href={`#/dive/${id}/edit`}>Fill in the details</a> or add a map below.</p>
   {/if}
-  <DiveDetail {dive} {maps} {photos} owner {fileUrl} {onAddMaps} {onAddPhotos} {onImportFile} {busy} />
+  <DiveDetail {dive} {maps} {photos} owner {fileUrl} {onAddMaps} {onAddPhotos} {onImportFile} {busy} {progress} />
 {:else}
   <main class="wrap" style="padding-top:2rem">
     <p>This dive doesn't exist on this device. It may have been deleted.</p>
@@ -82,5 +89,6 @@
 
 <style>
   .error { color: var(--danger); margin-top: 1rem; }
+  .notice { margin-top: 1rem; color: var(--ink-2); }
   .hint { margin-top: 1rem; margin-bottom: -0.5rem; }
 </style>

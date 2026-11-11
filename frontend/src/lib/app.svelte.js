@@ -5,6 +5,7 @@ import * as local from "./localdb.js";
 import { syncAll, classify, describe } from "./sync.js";
 import { offlineDiveIds } from "./offline.js";
 import { THUMBS } from "./schema.js";
+import { isClip } from "./clip.js";
 
 export const pb = new PocketBase(location.origin);
 
@@ -76,7 +77,8 @@ function updateProblems(dives, maps, photos) {
   }
   for (const [collection, list, noun] of [["maps", maps, "Map"], ["photos", photos, "Photo"]]) {
     for (const r of list) {
-      if (r._error) problems.push({ collection, id: r.id, dive: r.dive, title: `${noun} in ${title(diveById.get(r.dive))}`, message: r._error });
+      const what = isClip(r) ? "Clip" : noun;
+      if (r._error) problems.push({ collection, id: r.id, dive: r.dive, title: `${what} in ${title(diveById.get(r.dive))}`, message: r._error });
     }
   }
   const stuckDives = new Set(dives.filter((d) => d._error && !d._onServer).map((d) => d.id));
@@ -88,25 +90,31 @@ function updateProblems(dives, maps, photos) {
 
 const objectUrls = new Map();
 
-/** URL for a map/photo image: local blob while unsynced, server file after. */
-export function fileUrl(rec, thumb) {
+/**
+ * URL for a map/photo image (or a clip's video with field "video"): the
+ * local blob while unsynced, the server file after.
+ */
+export function fileUrl(rec, thumb, field = "image") {
   if (!rec) return "";
-  if (rec._file) {
-    let entry = objectUrls.get(rec.id);
-    if (!entry || entry.blob !== rec._file) {
+  const blob = field === "video" ? rec._video : rec._file;
+  if (blob) {
+    const key = field === "video" ? `${rec.id}:video` : rec.id;
+    let entry = objectUrls.get(key);
+    if (!entry || entry.blob !== blob) {
       if (entry) URL.revokeObjectURL(entry.url);
-      entry = { blob: rec._file, url: URL.createObjectURL(rec._file) };
-      objectUrls.set(rec.id, entry);
+      entry = { blob, url: URL.createObjectURL(blob) };
+      objectUrls.set(key, entry);
     }
     return entry.url;
   }
-  if (!rec.image) return "";
-  // Image files are protected; the token is left out of offline cache keys.
+  const name = rec[field];
+  if (!name) return "";
+  // Files are protected; the token is left out of offline cache keys.
   const params = new URLSearchParams();
-  if (thumb) params.set("thumb", thumb);
+  if (thumb && field === "image") params.set("thumb", thumb);
   if (app.fileToken) params.set("token", app.fileToken);
   const qs = params.toString();
-  return `/api/files/${rec.collectionName}/${rec.id}/${encodeURIComponent(rec.image)}${qs ? `?${qs}` : ""}`;
+  return `/api/files/${rec.collectionName}/${rec.id}/${encodeURIComponent(name)}${qs ? `?${qs}` : ""}`;
 }
 
 /** Offline cache key for a file URL: absolute, without the access token. */
@@ -139,7 +147,11 @@ async function ensureSession() {
   if (daysLeft < 44) await pb.collection("users").authRefresh();
 }
 
-/** Download the current trip's maps and photo thumbnails into the offline cache. */
+/**
+ * Download the current trip's maps and photo thumbnails into the offline
+ * cache. Clips contribute their poster thumbnail; the videos themselves
+ * stream when played and aren't kept offline.
+ */
 async function warmCache() {
   if (!("caches" in window)) return;
   try {
@@ -328,6 +340,24 @@ export async function addPhoto(diveId, prepared) {
     sort,
     _file: prepared.blob,
     _fileName: prepared.fileName,
+  });
+}
+
+/** A clip from prepareClip(): poster as the image, plus the MP4. */
+export async function addClip(diveId, prepared) {
+  const sort = app.photos.filter((p) => p.dive === diveId).length;
+  return write("photos", {
+    id: local.newId(),
+    dive: diveId,
+    caption: "",
+    sort,
+    duration: prepared.duration,
+    width: prepared.width,
+    height: prepared.height,
+    _file: prepared.blob,
+    _fileName: prepared.fileName,
+    _video: prepared.video,
+    _videoName: prepared.videoName,
   });
 }
 

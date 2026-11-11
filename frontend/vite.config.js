@@ -31,7 +31,9 @@ export default defineConfig({
           {
             // Map and photo files are immutable (new upload = new filename),
             // so cache-first is safe and makes viewed maps work offline.
-            urlPattern: ({ url }) => url.pathname.startsWith("/api/files/"),
+            // Clips (.mp4) are left to the browser: video is fetched in
+            // ranges as it plays, and isn't kept offline.
+            urlPattern: ({ url, request }) => url.pathname.startsWith("/api/files/") && request.destination !== "video" && !url.pathname.endsWith(".mp4"),
             handler: "CacheFirst",
             options: {
               cacheName: "dive-files",
@@ -63,5 +65,8 @@ export default defineConfig({
   build: {
     outDir: "../backend/pb_public",
     emptyOutDir: true,
+    // The Garmin FIT SDK and the video tools are their own chunks, loaded only
+    // when importing a dive or adding a clip (and precached for offline use).
+    chunkSizeWarningLimit: 800,
   },
 });

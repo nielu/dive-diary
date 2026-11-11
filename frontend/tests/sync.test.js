@@ -5,6 +5,7 @@
 import "fake-indexeddb/auto";
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import PocketBase from "pocketbase";
 import { save, remove, getOne, listAll, newId, pendingCount, getMeta } from "../src/lib/localdb.js";
 import { syncAll, pull } from "../src/lib/sync.js";
@@ -138,6 +139,38 @@ test("share link returns only the shared trip, read-only", async () => {
   const share = await pb.collection("shares").getFirstListItem(pb.filter("token = {:token}", { token }));
   await pb.collection("shares").delete(share.id);
   assert.equal((await anon(viaShare)).status, 404);
+});
+
+test("a clip uploads its poster and video together; share links stream it in ranges", async () => {
+  const diveId = newId();
+  const clipId = newId();
+  const clipTrip = "Clip trip " + Date.now();
+  const mp4 = fs.readFileSync(new globalThis.URL("../e2e/fixtures/clip-h264.mp4", import.meta.url));
+  await save("dives", { id: diveId, date: "2026-11-10", trip: clipTrip, site: "Clip cave" });
+  await save("photos", {
+    id: clipId, dive: diveId, caption: "Halocline", sort: 0, duration: 3, width: 1280, height: 720,
+    _file: pngBlob(), _fileName: "poster.png", _video: new Blob([mp4], { type: "video/mp4" }), _videoName: "clip.mp4",
+  });
+  await syncAll(pb);
+
+  const server = await pb.collection("photos").getOne(clipId);
+  assert.match(server.video, /^clip.*\.mp4$/);
+  assert.match(server.image, /\.png$/);
+  assert.deepEqual([server.duration, server.width, server.height], [3, 1280, 720]);
+  const local = await getOne("photos", clipId);
+  assert.equal(local._video, undefined, "video blob dropped after upload");
+  assert.equal(local.video, server.video);
+
+  const token = "C" + Array.from(crypto.getRandomValues(new Uint8Array(31)), (b) => "abcdefghijkmnpqrstuvwxyz23456789"[b % 32]).join("");
+  await pb.collection("shares").create({ token, trip: clipTrip });
+  const url = `/api/share/${token}/file/photos/${clipId}/${server.video}`;
+  const part = await anon(url, { headers: { Range: "bytes=0-99" } });
+  assert.equal(part.status, 206);
+  assert.equal(part.headers.get("content-range"), `bytes 0-99/${mp4.length}`);
+  assert.equal(part.headers.get("content-type"), "video/mp4");
+  assert.equal((await part.arrayBuffer()).byteLength, 100);
+  assert.equal((await anon(`/api/files/photos/${clipId}/${server.video}`)).status, 404, "not public");
+  assert.equal((await anon(`/api/share/${token}/file/photos/${clipId}/other.mp4`)).status, 404);
 });
 
 test("deleting a dive removes it and its maps/photos everywhere", async () => {

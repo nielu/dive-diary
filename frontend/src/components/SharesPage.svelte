@@ -92,7 +92,7 @@
 
 <main class="wrap">
   <h1>Share links</h1>
-  <p class="muted lede">Send a read-only link to family or buddies. They see the logs, maps with markers and routes, and photos. They can't edit anything, and you can turn a link off at any time.</p>
+  <p class="muted lede">Send a read-only link to family or buddies. They see the logs, maps with markers and routes, photos and clips. They can't edit anything, and you can turn a link off at any time.</p>
 
   <form onsubmit={create}>
     <label class="field">What to share

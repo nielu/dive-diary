@@ -1,6 +1,6 @@
 <script>
-  import { app, fileUrl, saveMap, deleteRecord, addPhoto } from "../lib/app.svelte.js";
-  import { preparePhoto } from "../lib/image.js";
+  import { app, fileUrl, saveMap, deleteRecord } from "../lib/app.svelte.js";
+  import { addMedia } from "../lib/media.js";
   import { go } from "../lib/router.svelte.js";
   import MapScreen from "./MapScreen.svelte";
 
@@ -11,8 +11,10 @@
   const map = $derived(maps.find((m) => m.id === mapId));
   const photos = $derived(app.photos.filter((p) => p.dive === diveId));
 
-  async function onUploadPhoto(file) {
-    return addPhoto(diveId, await preparePhoto(file));
+  async function onUploadPhoto(file, onStatus) {
+    const { added, notes } = await addMedia(diveId, [file], { onStatus });
+    if (notes.length) alert(notes.join(" "));
+    return added[0];
   }
 
   function onSave(patch) {

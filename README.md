@@ -2,7 +2,7 @@
 
 A personal cave-diving log: one entry per dive, with the dive details, a
 navigation and log text, photos of the cave map with markers and a drawn
-route, and dive photos. Works offline on your phone and syncs when you're back
+route, and dive photos and short video clips. Works offline on your phone and syncs when you're back
 on a connection. Read-only share links for family.
 
 **Stack:** PocketBase 0.40 (SQLite, file storage, auth, one binary) + Svelte 5
@@ -23,9 +23,12 @@ frontend/
   src/lib/refs.js        "#T1" marker references in the navigation/log text
   src/lib/fitimport.js   Garmin .fit dive files → dive fields + depth profile
   src/lib/importmatch.js new dive / fill a hand-written one / already imported
+  src/lib/clip.js        video clips → H.264 MP4 + poster frame, in the browser
+  src/lib/media.js       picked files → photos or clips
   src/lib/app.svelte.js  reactive state, background sync, actions
   src/components/        UI (MapCanvas = Leaflet, MapScreen = editor,
-                         TourPage = "Follow the route")
+                         TourPage = "Follow the route", ClipPlayer = a clip
+                         in the tour)
   tests/sync.test.js     sync integration tests against a live server
   tests/tour.test.js     unit tests for the tour geometry
   tests/refs.test.js     unit tests for marker references
@@ -94,7 +97,11 @@ password; do that in the dashboard (Collections → users).
 
 Every push to the repository redeploys automatically; the volume keeps your
 data. Hobby includes up to 5 GB of volume storage, which fits thousands of
-photos at the app's upload size.
+photos at the app's upload size. Clips take about 60 MB a minute, so they
+fill it faster; when it gets tight, add a Railway **Bucket** and point
+PocketBase at it in the dashboard (Settings → Files storage, S3). Buckets
+cost a fraction of volume storage and go up to 1 TB on Hobby. Files already
+uploaded need copying over once.
 
 ### Railway CDN
 
@@ -214,6 +221,32 @@ maps; the choice is remembered). `#T1` references in it select and zoom to
 that marker. In Markers mode, labels the plan mentions that no map has yet
 are listed; tap one, then tap the map, and the marker gets that label.
 
+**Clips.** Short videos go in with photos (**Add photos or clips**, or the
+`+` on a marker). Each is prepared on the device before it's saved, so it
+works offline at the site too (the video tools, Mediabunny on the browser's
+WebCodecs, load only when a clip is added and are cached for offline use):
+H.264 video at up to 1080p is copied as is; anything else, such as the
+HEVC that phones and the DJI app export, 4K or very high bitrates, is
+re-encoded once to H.264 at up to 1080p and about 8 Mbit/s (about 60 MB a
+minute; on real cave footage that kept the sand and silt detail that
+5 Mbit/s smeared). Either way the file comes out as an MP4 with its index at
+the front (playback starts at once) and none of the camera's or phone's
+metadata, location included. Sound is kept; on a browser that can't encode
+AAC, a clip whose sound isn't already AAC is added without it, and the app
+says so. Converting needs Safari on iOS 26 or later, or Chrome; a browser
+that can't read the source format says so. Up to 200 MB per clip (about 3
+minutes at that bitrate).
+
+A clip is a photos record with a `video` file; its `image` is a poster frame
+taken from the result, so the grid, thumbnails, the offline cache and
+marker attachments treat it like a photo. Clips show a play badge with
+their length and play in the photo viewer. In "Follow the route", a clip
+attached to a marker plays muted and on a loop while its card is on screen
+and pauses when scrolled away (tap for sound; with reduced motion it waits
+for a tap). Videos stream with range requests, through the share route for
+family too, and aren't kept offline; offline, the viewer shows the poster
+and says the clip needs a connection.
+
 **Share links.** A share is a random 32-character token tied to a trip (or to
 all dives). `GET /api/share/{token}` returns that trip's dives, maps and
 photos without auth; the collections themselves stay owner-only. Image files
@@ -238,3 +271,5 @@ in the dashboard (Settings → Application), or every visitor shares one limit.
   version is recreated on sync (maps whose image already left this device
   can't be recreated and show as a sync error).
 - Markdown works in the navigation and log fields.
+- A clip can't be trimmed or replaced in the app; edit it in your camera's
+  app first, and delete and re-add it to change it.

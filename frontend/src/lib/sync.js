@@ -75,13 +75,14 @@ function payload(collection, rec) {
     const v = rec[f];
     data[f] = v === undefined || v === null ? (f in EMPTY ? EMPTY[f] : "") : v;
   }
-  if (!rec._file) return data;
+  if (!rec._file && !rec._video) return data;
 
   const form = new FormData();
   for (const [k, v] of Object.entries(data)) {
     form.append(k, typeof v === "object" ? JSON.stringify(v) : String(v));
   }
-  form.append("image", rec._file, rec._fileName || "image.jpg");
+  if (rec._file) form.append("image", rec._file, rec._fileName || "image.jpg");
+  if (rec._video) form.append("video", rec._video, rec._videoName || "clip.mp4");
   return form;
 }
 
@@ -131,6 +132,7 @@ async function commitPushed(collection, sent, server) {
     await tx.store.put({
       ...(unchanged ? { ...current, ...strip(server) } : current),
       image: server.image ?? current.image,
+      video: server.video ?? current.video,
       created: server.created,
       updated: server.updated,
       collectionName: collection,
@@ -140,6 +142,8 @@ async function commitPushed(collection, sent, server) {
       _failedRev: undefined,
       _file: undefined,
       _fileName: undefined,
+      _video: undefined,
+      _videoName: undefined,
     });
   }
   await tx.done;

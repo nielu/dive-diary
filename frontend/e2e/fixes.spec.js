@@ -36,7 +36,7 @@ test("a change the server rejects is listed with the reason, holds back its phot
   page.on("request", (r) => r.method() === "POST" && r.url().includes("/api/collections/photos/records") && photoUploads.push(r.url()));
   await page.goto(`/#/dive/${diveId}`);
   await page.reload();
-  await chooseFiles(page, "Add photos", `${FIX}/photo1.jpg`);
+  await chooseFiles(page, "Add photos or clips", `${FIX}/photo1.jpg`);
   await expect(page.locator(".grid img")).toHaveCount(1);
 
   const status = page.locator("button.sync");

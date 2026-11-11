@@ -7,8 +7,10 @@
 //              record changed while it was being uploaded
 //   _deleted   tombstone waiting to be deleted on the server
 //   _onServer  the server has (had) this record
-//   _file      Blob of an image not yet uploaded (maps, photos)
+//   _file      Blob of an image not yet uploaded (maps, photos; a clip's poster)
 //   _fileName  original-ish filename for that blob
+//   _video     MP4 Blob of a clip not yet uploaded (photos)
+//   _videoName filename for that blob
 //   _error     why the server rejected the last upload (shown to the user)
 //   _failedRev the _rev that was rejected; not retried until edited again
 
@@ -19,7 +21,7 @@ export const COLLECTIONS = ["dives", "maps", "photos"];
 export const FIELDS = {
   dives: ["date", "time", "trip", "site", "team", "leader", "max_depth", "avg_depth", "temp", "duration", "navigation", "log", "gas", "dive_no", "computer", "source", "profile"],
   maps: ["dive", "caption", "sort", "width", "height", "markers", "route"],
-  photos: ["dive", "caption", "sort"],
+  photos: ["dive", "caption", "sort", "duration", "width", "height"],
 };
 
 let dbPromise;
@@ -86,7 +88,7 @@ export async function remove(collection, id) {
   const drop = async (store, rec) => {
     if (!rec) return;
     if (rec._onServer) {
-      await tx.objectStore(store).put({ ...rec, _deleted: true, _dirty: true, _rev: (rec._rev || 0) + 1, _file: undefined });
+      await tx.objectStore(store).put({ ...rec, _deleted: true, _dirty: true, _rev: (rec._rev || 0) + 1, _file: undefined, _video: undefined });
     } else {
       await tx.objectStore(store).delete(rec.id);
     }

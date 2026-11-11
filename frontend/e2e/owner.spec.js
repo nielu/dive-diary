@@ -72,7 +72,7 @@ test("log a dive with a map, markers, route and photos; work offline; share it",
   await page.getByRole("link", { name: "Back to dive" }).click();
 
   // photo, then sync
-  await chooseFiles(page, "Add photos", `${FIX}/photo0.jpg`);
+  await chooseFiles(page, "Add photos or clips", `${FIX}/photo0.jpg`);
   await expect(page.locator(".grid img")).toHaveCount(1);
   await expect(page.locator("button.sync")).toHaveText(/Synced/, { timeout: 20_000 });
 

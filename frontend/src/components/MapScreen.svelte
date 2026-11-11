@@ -6,6 +6,8 @@
   import { segmentColor } from "../lib/mapstyle.js";
   import Markdown from "./Markdown.svelte";
   import { markerIndex, findLabels } from "../lib/refs.js";
+  import { isClip, formatClipLength } from "../lib/clip.js";
+  import { MEDIA_ACCEPT } from "../lib/media.js";
 
   /**
    * @type {{
@@ -51,7 +53,7 @@
   // shown first while the full-resolution map loads
   const previewSrc = $derived(fileUrl(map, THUMBS.mapPreview) || "");
   const selectedPhotos = $derived(selected ? photos.filter((p) => (selected.photos || []).includes(p.id)) : []);
-  let uploading = $state(false);
+  let uploading = $state(""); // status text while adding photos or clips
 
   // ---------- navigation plan panel ----------
   // The dive's navigation text beside the map, so markers can be placed by it.
@@ -104,17 +106,17 @@
     e.currentTarget.value = "";
     if (!files.length || !selected || !onUploadPhoto) return;
     const target = selected;
-    uploading = true;
+    uploading = "…";
     try {
       for (const f of files) {
-        const rec = await onUploadPhoto(f);
+        const rec = await onUploadPhoto(f, (s) => (uploading = s.match(/\d+%/)?.[0] || "…"));
         if (rec) target.photos = [...(target.photos || []), rec.id];
       }
       persist();
     } catch (err) {
       alert(err.message);
     } finally {
-      uploading = false;
+      uploading = "";
     }
   }
 
@@ -337,21 +339,22 @@
           </label>
         </div>
         <div class="attach">
-          <span class="attach-label">Photos at this marker</span>
+          <span class="attach-label">Photos and clips at this marker</span>
           <div class="strip">
             {#each photos as p (p.id)}
-              <button class="thumb" aria-pressed={(selected.photos || []).includes(p.id)} onclick={() => togglePhoto(p.id)} aria-label={`${(selected.photos || []).includes(p.id) ? "Remove" : "Show"} photo${p.caption ? `: ${p.caption}` : ""}`}>
+              <button class="thumb" aria-pressed={(selected.photos || []).includes(p.id)} onclick={() => togglePhoto(p.id)} aria-label={`${(selected.photos || []).includes(p.id) ? "Remove" : "Show"} ${isClip(p) ? "clip" : "photo"}${p.caption ? `: ${p.caption}` : ""}`}>
                 <img src={fileUrl(p, "480x480f")} alt="" />
+                {#if isClip(p)}<span class="len" aria-hidden="true">{formatClipLength(p.duration)}</span>{/if}
               </button>
             {/each}
             {#if onUploadPhoto}
-              <label class="thumb add" aria-label="Upload photos to this marker">
-                {uploading ? "…" : "+"}
-                <input type="file" accept="image/*" multiple hidden onchange={uploadPhotos} disabled={uploading} />
+              <label class="thumb add" class:busy={!!uploading} aria-label="Upload photos or clips to this marker">
+                {uploading || "+"}
+                <input type="file" accept={MEDIA_ACCEPT} multiple hidden onchange={uploadPhotos} disabled={!!uploading} />
               </label>
             {/if}
           </div>
-          {#if photos.length}<span class="muted small">Tap a dive photo to show it here. It pops up when someone follows the route.</span>{/if}
+          {#if photos.length}<span class="muted small">Tap a photo or clip to show it here. It pops up when someone follows the route.</span>{/if}
         </div>
         <div class="sheet-actions">
           <button class="btn-danger" onclick={deleteMarker}>Delete marker</button>
@@ -624,6 +627,7 @@
   .thumb {
     all: unset;
     cursor: pointer;
+    position: relative;
     flex-shrink: 0;
     width: 56px;
     height: 56px;
@@ -638,9 +642,22 @@
     box-sizing: border-box;
   }
   .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb .len {
+    position: absolute;
+    left: 3px;
+    bottom: 3px;
+    padding: 0 0.3rem;
+    border-radius: 999px;
+    background: rgba(5, 13, 16, 0.72);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 650;
+    line-height: 1.4;
+  }
   .thumb[aria-pressed="true"] { opacity: 1; outline: 3px solid var(--accent); outline-offset: -3px; }
   .thumb:focus-visible { outline: 3px solid var(--ink); }
   .thumb.add { opacity: 1; border: 1.5px dashed var(--ink-2); background: transparent; color: var(--ink-2); }
+  .thumb.add.busy { font-size: 0.85rem; }
   .follow { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; display: inline-flex; align-items: center; text-decoration: none; }
   .list ol { list-style: none; margin: 0; padding: 0; }
   .list li + li { border-top: 1px solid var(--rule); }

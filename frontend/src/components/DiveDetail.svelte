@@ -6,9 +6,13 @@
   import DepthProfile from "./DepthProfile.svelte";
   import { THUMBS } from "../lib/schema.js";
   import { markerIndex } from "../lib/refs.js";
+  import { isClip } from "../lib/clip.js";
+  import { MEDIA_ACCEPT } from "../lib/media.js";
 
-  /** @type {{ dive: any, maps: any[], photos: any[], base?: string, owner?: boolean, fileUrl: (r: any, thumb?: string) => string, onAddMaps?: (files: File[]) => void, onAddPhotos?: (files: File[]) => void, onImportFile?: (file: File) => void, busy?: string }} */
-  let { dive, maps, photos, base = "", owner = false, fileUrl, onAddMaps, onAddPhotos, onImportFile, busy = "" } = $props();
+  /** @type {{ dive: any, maps: any[], photos: any[], base?: string, owner?: boolean, fileUrl: (r: any, thumb?: string, field?: string) => string, onAddMaps?: (files: File[]) => void, onAddPhotos?: (files: File[]) => void, onImportFile?: (file: File) => void, busy?: string, progress?: string }} */
+  let { dive, maps, photos, base = "", owner = false, fileUrl, onAddMaps, onAddPhotos, onImportFile, busy = "", progress = "" } = $props();
+  const clipCount = $derived(photos.filter(isClip).length);
+  const mediaTitle = $derived(!clipCount ? "Photos" : clipCount === photos.length ? (clipCount === 1 ? "Clip" : "Clips") : "Photos and clips");
   const hasProfile = $derived(Array.isArray(dive.profile?.samples) && dive.profile.samples.length > 1);
 
   const refs = $derived(markerIndex(maps));
@@ -114,18 +118,18 @@
   {#if photos.length || owner}
     <section>
       <div class="sec-head">
-        <h2>Photos</h2>
+        <h2>{mediaTitle}</h2>
         {#if owner}
-          <label class="btn">
-            {busy === "photos" ? "Adding…" : "Add photos"}
-            <input type="file" accept="image/*" multiple hidden onchange={(e) => pick(e, onAddPhotos)} disabled={!!busy} />
+          <label class="btn" aria-live="polite">
+            {busy === "photos" ? progress || "Adding…" : "Add photos or clips"}
+            <input type="file" accept={MEDIA_ACCEPT} multiple hidden onchange={(e) => pick(e, onAddPhotos)} disabled={!!busy} />
           </label>
         {/if}
       </div>
       {#if photos.length}
         <PhotoGrid {photos} {fileUrl} {owner} />
       {:else}
-        <p class="muted">No photos yet.</p>
+        <p class="muted">No photos yet. Short video clips work too; they're converted on this device so every browser can play them.</p>
       {/if}
     </section>
   {/if}

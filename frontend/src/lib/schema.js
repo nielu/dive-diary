@@ -46,4 +46,6 @@ export const FIELD_LABELS = {
   computer: "Dive computer",
   source: "Imported from",
   profile: "Depth profile",
+  video: "Clip",
+  duration: "Clip length",
 };

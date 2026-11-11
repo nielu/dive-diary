@@ -8,7 +8,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FRONT="$ROOT/frontend"
 
 if [[ "${1:-}" == "--unit" ]]; then
-  cd "$FRONT" && node --test tests/units.test.js tests/tour.test.js tests/refs.test.js tests/import.test.js
+  cd "$FRONT" && node --test tests/units.test.js tests/tour.test.js tests/refs.test.js tests/import.test.js tests/clip.test.js
   exit
 fi
 

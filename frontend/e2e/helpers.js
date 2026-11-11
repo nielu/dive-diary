@@ -59,16 +59,19 @@ export async function ownerApi() {
     post: (p, data) => ctx.post(p, { headers, data }).then(ok),
     patch: (p, data) => ctx.patch(p, { headers, data }).then(ok),
     del: (p) => ctx.delete(p, { headers }).then(ok),
-    upload: (collection, fields, file) =>
+    // file: the image; video: an MP4 to upload with it (a clip, with the image as its poster)
+    upload: (collection, fields, file, video) =>
       ctx
         .post(`/api/collections/${collection}/records`, {
           headers,
           multipart: {
             ...Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, typeof v === "object" ? JSON.stringify(v) : String(v)])),
             image: { name: path.basename(file), mimeType: file.endsWith(".png") ? "image/png" : "image/jpeg", buffer: fs.readFileSync(file) },
+            ...(video ? { video: { name: path.basename(video), mimeType: "video/mp4", buffer: fs.readFileSync(video) } } : {}),
           },
         })
         .then(ok),
+    fileToken: () => ctx.post("/api/files/token", { headers }).then(ok).then((r) => r.token),
     raw: ctx,
   };
 }

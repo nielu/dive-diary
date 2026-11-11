@@ -57,9 +57,9 @@ routerAdd("GET", "/api/share/{token}", (e) => {
   });
 });
 
-// Map and photo files for share viewers. Image fields are protected, so this
-// is the only way in without the owner's login, and it stops working the
-// moment the share is turned off or expires.
+// Map, photo and clip files for share viewers. File fields are protected, so
+// this is the only way in without the owner's login, and it stops working the
+// moment the share is turned off or expires. Range requests work (clips seek).
 routerAdd("GET", "/api/share/{token}/file/{collection}/{id}/{name}", (e) => {
   const { findShare, shareCoversDive, THUMBS } = require(`${__hooks}/share_lib.js`);
   const share = findShare($app, e.request.pathValue("token"));
@@ -75,7 +75,8 @@ routerAdd("GET", "/api/share/{token}/file/{collection}/{id}/{name}", (e) => {
     throw new NotFoundError("");
   }
   const name = e.request.pathValue("name");
-  if (record.getString("image") !== name || !shareCoversDive(share, dive)) {
+  const isFile = record.getString("image") === name || (collection === "photos" && record.getString("video") === name);
+  if (!isFile || !shareCoversDive(share, dive)) {
     throw new NotFoundError("");
   }
 
@@ -86,7 +87,7 @@ routerAdd("GET", "/api/share/{token}/file/{collection}/{id}/{name}", (e) => {
 
   const fsys = $app.newFilesystem();
   try {
-    if (thumb && THUMBS[collection].includes(thumb)) {
+    if (thumb && THUMBS[collection].includes(thumb) && name === record.getString("image")) {
       const thumbName = thumb + "_" + name;
       const thumbKey = base + "/thumbs_" + name + "/" + thumbName;
       try {

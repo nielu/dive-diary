@@ -8,10 +8,12 @@
   import { formatNum, formatDate } from "../lib/format.js";
   import Markdown from "./Markdown.svelte";
   import PhotoGrid from "./PhotoGrid.svelte";
+  import ClipPlayer from "./ClipPlayer.svelte";
   import { markerIndex } from "../lib/refs.js";
+  import { isClip } from "../lib/clip.js";
   import { THUMBS } from "../lib/schema.js";
 
-  /** @type {{ dive: any, maps: any[], photos: any[], fileUrl: (r: any, thumb?: string) => string, backHref: string }} */
+  /** @type {{ dive: any, maps: any[], photos: any[], fileUrl: (r: any, thumb?: string, field?: string) => string, backHref: string }} */
   let { dive, maps, photos, fileUrl, backHref } = $props();
   let fullReady = $state({});
   let previewFailed = $state({});
@@ -320,13 +322,18 @@
           </div>
         {:else if b.kind === "stop"}
           {@const s = chapters[b.chapter].stops[b.stop]}
-          {@const pics = stopPhotos(s)}
+          {@const media = stopPhotos(s)}
+          {@const clips = media.filter(isClip)}
+          {@const pics = media.filter((p) => !isClip(p))}
           <article class="card stop-card rv" use:reveal aria-label={`Waypoint ${s.marker.label || b.stop + 1}`}>
             <div class="stop-head">
               <span class="badge"><span>{(s.marker.label || "").slice(0, 4)}</span></span>
               <span class="muted small">Waypoint {b.stop + 1} of {chapters[b.chapter].stops.length}{multi ? `, map ${b.chapter + 1}` : ""}</span>
             </div>
             {#if s.marker.note}<p class="note">{s.marker.note}</p>{/if}
+            {#each clips as c (c.id)}
+              <ClipPlayer clip={c} {fileUrl} />
+            {/each}
             {#if pics.length}
               <div class="pics" class:single={pics.length === 1}>
                 <PhotoGrid photos={pics} {fileUrl} />
@@ -345,7 +352,7 @@
             </div>
             {#if gallery.length}
               <div class="card rv" use:reveal>
-                <h2>More photos from this dive</h2>
+                <h2>{gallery.some(isClip) ? (gallery.every(isClip) ? "More clips from this dive" : "More photos and clips from this dive") : "More photos from this dive"}</h2>
                 <PhotoGrid photos={gallery} {fileUrl} />
               </div>
             {/if}
